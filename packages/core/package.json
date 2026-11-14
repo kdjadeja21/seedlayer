@@ -1,7 +1,26 @@
 {
   "name": "@seedlayer/core",
   "version": "0.1.0",
+  "description": "Schema, config codes, resolver, and renderer for Seedlayer.",
+  "keywords": [
+    "seedlayer",
+    "config",
+    "schema",
+    "scaffold"
+  ],
+  "homepage": "https://github.com/kdjadeja21/seedlayer/tree/main/packages/core#readme",
+  "bugs": {
+    "url": "https://github.com/kdjadeja21/seedlayer/issues"
+  },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kdjadeja21/seedlayer.git",
+    "directory": "packages/core"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "exports": {
     ".": {
@@ -14,8 +33,13 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE",
+    "README.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",

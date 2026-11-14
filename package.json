@@ -15,6 +15,8 @@
     "lint": "biome check .",
     "dev": "pnpm --filter @seedlayer/core build && pnpm --filter @seedlayer/packs build && pnpm --filter @seedlayer/web dev",
     "verify:generated": "node scripts/verify-presets.mjs",
+    "release": "pnpm lint && pnpm typecheck && pnpm build && pnpm test && pnpm -r publish --access public",
+    "release:dry": "pnpm lint && pnpm typecheck && pnpm build && pnpm test && pnpm -r publish --dry-run --access public",
     "generate:example": "pnpm --filter @seedlayer/core build && pnpm --filter @seedlayer/packs build && pnpm --filter seedlayer build && node packages/cli/dist/bin.js examples/startup-speed --preset startup-speed --skip-install --force"
   },
   "pnpm": {

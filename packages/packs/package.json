@@ -1,7 +1,26 @@
 {
   "name": "@seedlayer/packs",
   "version": "0.1.0",
+  "description": "Presets and content packs for Seedlayer.",
+  "keywords": [
+    "seedlayer",
+    "presets",
+    "nextjs",
+    "agents"
+  ],
+  "homepage": "https://github.com/kdjadeja21/seedlayer/tree/main/packages/packs#readme",
+  "bugs": {
+    "url": "https://github.com/kdjadeja21/seedlayer/issues"
+  },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kdjadeja21/seedlayer.git",
+    "directory": "packages/packs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
   "type": "module",
   "exports": {
     ".": {
@@ -12,8 +31,13 @@
   "files": [
     "dist",
     "content",
-    "presets"
+    "presets",
+    "LICENSE",
+    "README.md"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
