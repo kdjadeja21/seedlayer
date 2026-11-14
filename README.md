@@ -13,17 +13,18 @@ The same config always produces the same files. The web UI and the CLI share `@s
 
 `--preset` defaults to `startup-speed`. The other flags override that preset. Pass only the ones you want to change.
 
-| Flag          | Values                                            |
-| ------------- | ------------------------------------------------- |
-| `--preset`    | `startup-speed`, `team-strict`, `hackathon-2h`    |
-| `--palette`   | `ink`, `harbor`, `ember`, `iris`, `grove`, `dusk` |
-| `--font`      | `Inter`, `Geist`, `system`                        |
-| `--radius`    | `none`, `sm`, `md`, `lg`                          |
-| `--agents`    | comma-separated `cursor`, `claude-code`           |
-| `--lint`      | `biome`, `eslint`                                 |
-| `--branching` | `trunk`, `github-flow`, `agent-safe`              |
-| `--no-credit` | omit the home page Seedlayer credit               |
-| `--config`    | an `sl1.` code or a JSON file                     |
+| Flag              | Values                                                                               |
+| ----------------- | ------------------------------------------------------------------------------------ |
+| `--preset`        | `startup-speed`, `team-strict`, `hackathon-2h`                                       |
+| `--palette`       | `ink`, `harbor`, `ember`, `iris`, `grove`, `dusk`                                    |
+| `--font`          | `Inter`, `Geist`, `system`                                                           |
+| `--radius`        | `none`, `sm`, `md`, `lg`                                                             |
+| `--agents`        | comma-separated `cursor`, `claude-code` (`claude` is a short name for `claude-code`) |
+| `--lint`          | `biome`, `eslint`                                                                    |
+| `--branching`     | `trunk`, `github-flow`, `agent-safe`                                                 |
+| `--no-credit`     | omit the home page Seedlayer credit                                                  |
+| `--version`, `-v` | print the CLI version                                                                |
+| `--config`        | an `sl1.` code or a JSON file                                                        |
 
 `--config` cannot be combined with the flags above. With no config flags, an interactive terminal asks for the preset, palette, and agents. A non-interactive shell uses `startup-speed`.
 

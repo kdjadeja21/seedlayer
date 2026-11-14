@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { createInterface, type Interface } from "node:readline/promises";
+import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import {
   AGENT_IDS,
@@ -34,6 +35,7 @@ const CONFIG_FLAGS = [
 ] as const;
 
 const LOADABLE_PRESETS = PRESET_IDS.filter((id) => id !== "custom");
+const AGENT_CHOICES = `${AGENT_IDS.join(", ")}. claude is a short name for claude-code`;
 
 main().catch((error: unknown) => {
   console.error(formatConfigError(error));
@@ -56,10 +58,16 @@ async function main(): Promise<void> {
       "skip-install": { type: "boolean", default: false },
       "skip-verify": { type: "boolean", default: false },
       force: { type: "boolean", default: false },
+      version: { type: "boolean", short: "v", default: false },
       help: { type: "boolean", default: false },
     },
     allowPositionals: true,
   });
+
+  if (values.version) {
+    console.log(cliVersion());
+    return;
+  }
 
   if (values.help) {
     printHelp();
@@ -146,14 +154,37 @@ function oneOf<T extends string>(
 }
 
 function parseAgents(value: string): string[] {
-  const agents = value.split(",").map((item) => item.trim());
+  const agents = value.split(",").map((item) => aliasAgent(item.trim()));
   const unknown = agents.some((agent) => !AGENT_IDS.find((item) => item === agent));
   if (agents.length === 0 || unknown) {
     throw new SeedlayerError(
-      `Unknown --agents "${value}". Expected a comma-separated list of: ${AGENT_IDS.join(", ")}`,
+      `Unknown --agents "${value}". Expected a comma-separated list of: ${AGENT_CHOICES}`,
     );
   }
   return agents;
+}
+
+function aliasAgent(agent: string): string {
+  return agent === "claude" ? "claude-code" : agent;
+}
+
+function cliVersion(): string {
+  const packageJsonPath = path.join(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../package.json",
+  );
+  const parsed: unknown = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+  if (!hasVersion(parsed)) throw new SeedlayerError("CLI package.json is missing a version.");
+  return parsed.version;
+}
+
+function hasVersion(value: unknown): value is { version: string } {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "version" in value &&
+    typeof value.version === "string"
+  );
 }
 
 async function promptConfig(): Promise<SeedlayerConfig> {
@@ -164,7 +195,7 @@ async function promptConfig(): Promise<SeedlayerConfig> {
     const palette = await ask(rl, "palette", PALETTE_IDS, base.design.palette);
     const agentsDefault = base.agents.join(",");
     const agentsAnswer = (
-      await rl.question(`agents (${AGENT_IDS.join(", ")}) [${agentsDefault}]: `)
+      await rl.question(`agents (${AGENT_CHOICES}) [${agentsDefault}]: `)
     ).trim();
     return withConfigFlags(base, {
       palette,
@@ -233,13 +264,14 @@ Options:
   --palette <name>         ${PALETTE_IDS.join(", ")}
   --font <name>            ${FONT_IDS.join(", ")}
   --radius <name>          ${RADIUS_IDS.join(", ")}
-  --agents <list>          comma-separated ${AGENT_IDS.join(", ")}
+  --agents <list>          comma-separated ${AGENT_CHOICES}
   --lint <name>            ${LINTER_IDS.join(", ")}
   --branching <name>       ${BRANCHING_IDS.join(", ")}
   --no-credit              Omit the Seedlayer credit on the home page
   --skip-install           Write files only
   --skip-verify            Install dependencies and skip lint and typecheck
   --force                  Replace a non-empty directory
+  --version, -v            Print the CLI version
   --help                   Show this help
 
 --config cannot be combined with the other config flags.
