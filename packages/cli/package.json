@@ -1,14 +1,24 @@
 {
   "name": "seedlayer",
-  "version": "0.0.1",
-  "description": "Create an AI-agent-ready project in one command.",
-  "type": "module",
-  "bin": { "seedlayer": "dist/bin.js" },
-  "files": ["dist"],
-  "scripts": {
-    "build": "tsc -p tsconfig.json"
-  },
-  "engines": { "node": ">=20" },
+  "version": "0.1.0",
   "license": "MIT",
-  "devDependencies": { "typescript": "^5.6.0", "@types/node": "^22.0.0" }
+  "type": "module",
+  "bin": {
+    "seedlayer": "./dist/bin.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --test test/**/*.test.ts"
+  },
+  "dependencies": {
+    "@seedlayer/core": "workspace:*",
+    "@seedlayer/packs": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "22.19.21"
+  }
 }
