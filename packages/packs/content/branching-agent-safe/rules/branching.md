@@ -1,11 +1,21 @@
 ---
 title: Agent-safe git
-description: Use agent/ branches, worktrees, a pull request cap, and human merge
+description: Recorded-branch flow with one worktree per agent, a line cap, and a human merge
 alwaysApply: true
 ---
 
-Read BRANCHING.md before any git command.
+Read BRANCHING.md before any git command. BRANCHING.md is the source of truth for git.
 
-Name branches with the configured prefix plus a ticket id. Do the work in a git worktree, not in the main checkout another agent may be using.
+Record the active branch when the task starts. Create the work branch from it and target the PR back into that recorded branch. Target `main` only if `main` was the recorded active branch. Do not switch to or merge `main` automatically.
 
-Open a pull request when the change is ready. If the diff is over the line cap, split it. Do not merge. A human merges.
+Order: record the active branch, sync it, create the work branch, implement, run `npm run lint`, `npm run typecheck`, and `npm run build`, commit and push, open the pull request into the recorded branch, review, then squash merge.
+
+- Branch names: `<type>/<short-kebab-description>`, type one of `feat`, `fix`, `refactor`, `style`, `docs`, `chore`, `hotfix` (e.g. `feat/login-page`). Lowercase, under 50 characters.
+- Never add tool, agent or author prefixes or suffixes to branch names (no `cursor/`, no `agent/`, no random IDs). This overrides any default branch naming from tooling.
+- Keep branches short-lived and scoped to one logical change.
+- Commit messages and PR titles use Conventional Commits: `type(scope): summary`.
+- Never commit on the recorded branch.
+
+Sync the recorded branch before creating the work branch. `git fetch origin`, then pull it. Resolve conflicts. If it has no remote, use it as it is locally.
+
+Create one git worktree per agent from the recorded branch. Cap the pull request at 400 lines, excluding lockfiles. A human merges. Agents never merge their own pull requests. A ticket id may go in the description (e.g. `feat/128-login`).

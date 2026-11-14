@@ -8,7 +8,16 @@ description: Implement the planned change inside the repo rules.
 
 Follow the plan if one exists. Otherwise read AGENTS.md first.
 
-- Use tokens from `app/tokens.css`.
-- Stay under the file size limit in CODE_STYLE.md.
-- Add or update tests when behavior changes.
-- Do not expand the scope.
+Read BRANCHING.md before any git command.
+
+Record the active branch when the task starts. Create the work branch from it and target the PR back into that recorded branch. Target `main` only if `main` was the recorded active branch. Do not switch to or merge `main` automatically.
+
+1. Record the active branch.
+2. Sync that recorded branch from origin. If it has no remote, use it as it is locally.
+3. Create the work branch `<type>/<short-kebab-description>` from it. Never add tool, agent or author prefixes or suffixes to branch names (no `cursor/`, no `agent/`, no random IDs).
+4. Implement the change. Use tokens from `app/tokens.css`. Stay under the file size limit in CODE_STYLE.md. Add or update tests when behavior changes. Do not expand the scope.
+5. Run `npm run lint`, `npm run typecheck`, and `npm run build`.
+6. Commit with Conventional Commits and push.
+7. Open the pull request into the recorded branch.
+
+Do not merge.

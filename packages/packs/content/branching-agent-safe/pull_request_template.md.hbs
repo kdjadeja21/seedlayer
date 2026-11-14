@@ -5,9 +5,9 @@
 
 ## Checklist
 
-- [ ] Branch matches `{{config.git.branchPrefix}}<ticket>`
+- [ ] Branch name and title follow BRANCHING.md (`<type>/<short-kebab-description>`, for example `feat/128-login`)
+- [ ] `npm run lint`, `npm run typecheck`, and `npm run build` pass
+- [ ] UI changes include screenshots
 - [ ] Diff is within {{config.git.maxPrLines}} lines, excluding lockfiles
-- [ ] Tests cover the change
-{{#if flags.prReview}}
-- [ ] Human review is requested; the author will not merge
-{{/if}}
+- [ ] The work is in its own git worktree
+- [ ] A human merges; the agent does not merge this pull request

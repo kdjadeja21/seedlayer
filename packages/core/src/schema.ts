@@ -71,10 +71,6 @@ export const seedlayerConfigSchema = z
     git: z
       .object({
         workflow: z.enum(BRANCHING_IDS),
-        branchPrefix: z
-          .string()
-          .regex(/^[a-z0-9][a-z0-9._/-]*$/, "Branch prefix must be a lowercase path fragment")
-          .max(32),
         commits: z.enum(["conventional"]),
         maxPrLines: z.number().int().min(50).max(2000),
       })
@@ -125,13 +121,25 @@ export const projectNameSchema = z
   .regex(/^[a-z0-9][a-z0-9-]*$/, "Use a lowercase project name such as my-app");
 
 export function parseConfig(input: unknown): SeedlayerConfig {
-  const parsed = seedlayerConfigSchema.parse(input);
+  const parsed = seedlayerConfigSchema.parse(withoutBranchPrefix(input));
   return {
     ...parsed,
     agents: AGENT_IDS.filter((agent) => parsed.agents.includes(agent)),
     workflow: WORKFLOW_ORDER.filter((command) => parsed.workflow.includes(command)),
     quality: QUALITY_ORDER.filter((gate) => parsed.quality.includes(gate)),
   };
+}
+
+function withoutBranchPrefix(input: unknown): unknown {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return input;
+  const record = input as Record<string, unknown>;
+  const git = record.git;
+  if (!git || typeof git !== "object" || Array.isArray(git) || !("branchPrefix" in git)) {
+    return input;
+  }
+  const gitRecord = { ...(git as Record<string, unknown>) };
+  delete gitRecord.branchPrefix;
+  return { ...record, git: gitRecord };
 }
 
 export function formatConfigError(error: unknown): string {
