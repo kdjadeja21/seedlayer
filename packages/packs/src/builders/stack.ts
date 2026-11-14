@@ -1,7 +1,7 @@
 import { canonicalJson, type RenderContext, type SeedlayerConfig } from "@seedlayer/core";
 
 const VERSIONS = {
-  next: "16.3.4",
+  next: "16.4.6",
   react: "19.2.8",
   reactDom: "19.2.8",
   tailwindcss: "4.3.5",
@@ -13,7 +13,7 @@ const VERSIONS = {
   vitest: "5.1.0",
   biome: "2.6.7",
   eslint: "9.39.4",
-  eslintConfigNext: "16.3.4",
+  eslintConfigNext: "16.4.6",
   clsx: "2.1.1",
   tailwindMerge: "3.7.0",
   cva: "0.7.1",
