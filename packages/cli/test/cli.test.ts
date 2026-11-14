@@ -89,8 +89,10 @@ test("each configurator preset command exits 0", () => {
     const preset = button.dataset.preset;
     assert.equal(command, `npx seedlayer my-app --preset ${preset}`);
     const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
-    const result = run(path.join(root, "my-app"), ["--preset", preset, "--skip-install"]);
+    const target = path.join(root, "my-app");
+    const result = run(target, ["--preset", preset, "--skip-install"]);
     assert.equal(result.status, 0, result.stderr);
+    assertPresetGitRules(target, preset !== "hackathon-2h");
   }
 
   const name = page.querySelector("#name");
@@ -101,6 +103,33 @@ test("each configurator preset command exits 0", () => {
     'npx seedlayer "my app" --preset hackathon-2h',
   );
 });
+
+function assertPresetGitRules(target: string, claude: boolean): void {
+  const activeBranch = /active branch/;
+  const noToolPrefix = /no `cursor\/`, no `agent\/`, no random IDs/;
+  const typeName = /<type>\/<short-kebab-description>/;
+  const syncFirst = /git fetch origin/;
+  const branching = readFileSync(path.join(target, ".cursor/rules/branching.mdc"), "utf8");
+  const sync = readFileSync(path.join(target, ".cursor/rules/sync-branch-first.mdc"), "utf8");
+  const agents = readFileSync(path.join(target, "AGENTS.md"), "utf8");
+  const doc = readFileSync(path.join(target, "BRANCHING.md"), "utf8");
+  for (const contents of [branching, agents, doc]) {
+    assert.match(contents, activeBranch);
+    assert.match(contents, noToolPrefix);
+  }
+  assert.match(branching, typeName);
+  assert.match(branching, syncFirst);
+  assert.match(sync, /alwaysApply: true/);
+  assert.match(sync, syncFirst);
+  assert.doesNotMatch(doc, /agent\/<ticket>|branch from main/i);
+  if (!claude) {
+    assert.equal(existsSync(path.join(target, "CLAUDE.md")), false);
+    return;
+  }
+  const claudeDoc = readFileSync(path.join(target, "CLAUDE.md"), "utf8");
+  assert.match(claudeDoc, activeBranch);
+  assert.match(claudeDoc, noToolPrefix);
+}
 
 function run(target: string, args: string[]) {
   return spawnSync(process.execPath, ["--import", "tsx", bin, target, ...args], {

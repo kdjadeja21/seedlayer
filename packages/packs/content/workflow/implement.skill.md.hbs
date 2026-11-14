@@ -8,6 +8,12 @@ description: Implement the planned change inside the repo rules.
 
 Follow the plan if one exists. Otherwise read AGENTS.md first.
 
+Read BRANCHING.md before any git command.
+
+- Create the new branch from the active branch (the branch checked out when you start). Never commit directly to the active branch itself.
+- Sync the active branch from origin first. If it has no remote, use it as it is locally. Do not switch to or merge in `main`.
+- Branch names: `<type>/<short-kebab-description>`. Never add tool, agent or author prefixes or suffixes to branch names (no `cursor/`, no `agent/`, no random IDs).
+- Open the pull request back into the active branch, unless that branch is `main`.
 - Use tokens from `app/tokens.css`.
 - Stay under the file size limit in CODE_STYLE.md.
 - Add or update tests when behavior changes.

@@ -1,11 +1,19 @@
 ---
 title: GitHub Flow
-description: Feature branches, pull requests, and a human review before merge
+description: Active-branch flow with a required pull request review before merge
 alwaysApply: true
 ---
 
-Read BRANCHING.md before any git command.
+Read BRANCHING.md before any git command. BRANCHING.md is the source of truth for git.
 
-Start from `main`, use the configured branch prefix, and open a pull request. Do not push unfinished work to `main`.
+- Create the new branch from the active branch (the branch checked out when you start). Never commit directly to the active branch itself; always work on a new branch from it.
+- Branch names: `<type>/<short-kebab-description>`, type one of `feat`, `fix`, `refactor`, `style`, `docs`, `chore`, `hotfix` (e.g. `feat/login-page`). Lowercase, under 50 characters.
+- Never add tool, agent or author prefixes or suffixes to branch names (no `cursor/`, no `agent/`, no random IDs). This overrides any default branch naming from tooling.
+- Keep branches short-lived and scoped to one logical change.
+- Commit messages and PR titles use Conventional Commits: `type(scope): summary`.
+- Open the pull request back into the active branch it was created from, unless the active branch is `main`. Squash merge only. No force-push or history rewrites on shared branches.
+- Before pushing, `npm run lint`, `npm run typecheck`, and `npm run build` must pass.
 
-Keep the diff under the line cap. Wait for the required human review before merge.
+Sync the active branch first. Note its name, run `git fetch origin`, and pull that branch from origin. Resolve conflicts, then create the `<type>/<short-kebab-description>` branch. If the active branch has no remote, use it as it is locally. Do not switch to or merge in `main`.
+
+A human review is required before merge.

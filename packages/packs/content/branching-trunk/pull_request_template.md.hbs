@@ -5,9 +5,10 @@
 
 ## Checklist
 
-- [ ] Branch is short-lived and uses `{{config.git.branchPrefix}}`
-- [ ] Diff is within {{config.git.maxPrLines}} lines, excluding lockfiles
-- [ ] CI is green
+- [ ] Branch name and title follow BRANCHING.md
+- [ ] `npm run lint`, `npm run typecheck`, and `npm run build` pass
+- [ ] UI changes include screenshots
+- [ ] The branch is tiny and ready to merge
 {{#if flags.prReview}}
 - [ ] Review requested because this change is risky
 {{/if}}

@@ -5,9 +5,8 @@
 
 ## Checklist
 
-- [ ] Branch matches `{{config.git.branchPrefix}}<short-name>`
+- [ ] Branch name and title follow BRANCHING.md
+- [ ] `npm run lint`, `npm run typecheck`, and `npm run build` pass
+- [ ] UI changes include screenshots
+- [ ] A human has reviewed the pull request before merge
 - [ ] Diff is within {{config.git.maxPrLines}} lines, excluding lockfiles
-- [ ] Tests cover the change
-{{#if flags.prReview}}
-- [ ] A human reviewer is requested
-{{/if}}

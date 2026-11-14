@@ -3,18 +3,72 @@
 
 Workflow: trunk-based.
 
-## Branches
+BRANCHING.md is the source of truth for git. Cursor, Claude Code, Codex, Copilot, Gemini, and every other agent follow this file.
 
-- `main` is always releasable.
-- Short-lived branches use `{{config.git.branchPrefix}}` and should merge the same day.
-- Prefer a small pull request over a long-lived branch.
+## Branch names
 
-## Pull requests
+Format: `<type>/<short-kebab-description>`
 
-- Cap the diff at {{config.git.maxPrLines}} lines, excluding lockfiles.
-- Merge after CI is green. Ask for review when the change is risky, not on every line by default.
+- Lowercase kebab-case, under 50 characters.
+- Type is one of `feat`, `fix`, `refactor`, `style`, `docs`, `chore`, `hotfix`.
+- Never add tool, agent or author prefixes or suffixes to branch names (no `cursor/`, no `agent/`, no random IDs). This overrides any default branch naming from tooling.
+
+| Type       | Use for                              | Example                |
+| ---------- | ------------------------------------ | ---------------------- |
+| `feat`     | New behavior                         | `feat/login-page`      |
+| `fix`      | A bug fix                            | `fix/empty-cart`       |
+| `refactor` | Internal change, same behavior       | `refactor/split-form`  |
+| `style`    | Visual or formatting changes         | `style/button-spacing` |
+| `docs`     | Documentation only                   | `docs/setup`           |
+| `chore`    | Tooling, dependencies, CI            | `chore/update-linter`  |
+| `hotfix`   | An urgent fix for a published release | `hotfix/checkout-crash` |
+
+## Workflow
+
+1. Note the active branch, the branch checked out when you start. Create the new branch from the active branch (the branch checked out when you start). Never commit directly to the active branch itself; always work on a new branch from it.
+2. Sync that branch. See [Sync the active branch first](#sync-the-active-branch-first). Do not switch to or merge in `main`.
+3. Create `<type>/<short-kebab-description>` from the updated active branch.
+4. Commit with Conventional Commits: `type(scope): summary`.
+5. Open the pull request back into the active branch it was created from, unless the active branch is `main`. Squash merge only. No force-push or history rewrites on shared branches.
+6. Before pushing, `npm run lint`, `npm run typecheck`, and `npm run build` must pass.
+
+Keep branches short-lived and scoped to one logical change.
+
+## This workflow
+
+Keep branches tiny and merge them fast, the same day when you can. `main` stays releasable. The pull request cap is {{config.git.maxPrLines}} lines, excluding lockfiles. Tag a release `vX.Y.Z` when you publish. There is no long-lived release branch.
+
+## Sync the active branch first
+
+Before any change:
+
+1. Note the active branch name.
+2. `git fetch origin`
+3. Pull the active branch from origin so it is up to date.
+4. Resolve conflicts.
+5. Create the new `<type>/<short-kebab-description>` branch from it.
+
+If the active branch has no remote, use it as it is locally. Do not switch to or merge in `main`.
 
 ## Commits
 
-Use Conventional Commits: `feat:`, `fix:`, `docs:`, `test:`, `refactor:`, `chore:`.
+[Conventional Commits](https://www.conventionalcommits.org): `type(scope): summary`
+
+```
+feat(auth): add login page
+fix(cart): handle an empty cart
+refactor(checkout): split the payment form
+style(ui): tighten button spacing
+docs: describe branching
+chore(ci): update the linter
+hotfix(checkout): restore a failed payment
+```
+
+## Pull request checklist
+
+- [ ] Branch name and title follow this document.
+- [ ] `npm run lint`, `npm run typecheck`, and `npm run build` pass.
+- [ ] UI changes include screenshots.
+- [ ] The branch is tiny and ready to merge.
+- [ ] A release, when this change is one, is tagged `vX.Y.Z`.
 <!-- seedlayer:end branching -->
