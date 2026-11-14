@@ -19,6 +19,12 @@ pnpm dev
 
 Node 20 or newer. The repo uses pnpm.
 
+## Branches
+
+Follow [docs/BRANCHING.md](docs/BRANCHING.md). `main` is the only long-lived branch and stays releasable. Branch from the latest `main` as `<type>/<short-kebab-description>`, open a pull request into `main`, and squash-merge. Before pushing, `pnpm lint`, `pnpm typecheck`, `pnpm build`, and `pnpm test` must pass.
+
+Sync with `origin` and the latest `origin/main` before editing. Cursor, Claude, and other agents follow the same rules (`AGENTS.md`, `CLAUDE.md`, `.cursor/rules/branching.mdc`).
+
 ## Add a pack
 
 1. Create `packages/packs/content/<name>/pack.json`.
