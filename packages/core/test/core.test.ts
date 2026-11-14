@@ -10,7 +10,9 @@ import {
   canonicalJson,
   decodeConfig,
   encodeConfig,
+  formatConfigError,
   parseConfig,
+  projectNameSchema,
   resolveSelection,
   zipFiles,
 } from "../src/index.ts";
@@ -158,6 +160,83 @@ test("configs and sl1 codes without credit default to true", () => {
   assert.equal(decoded.credit, true);
   assert.deepEqual(decoded, parsed);
 });
+
+test("a legacy config with branchPrefix and no credit still parses", () => {
+  const parsed = parseConfig(config);
+  const { credit, ...withoutCredit } = parsed;
+  const legacy = {
+    ...withoutCredit,
+    design: { ...parsed.design, palette: "neutral" as SeedlayerConfig["design"]["palette"] },
+    git: { ...parsed.git, branchPrefix: "agent/" },
+  };
+  assert.equal(credit, true);
+  assert.equal("credit" in legacy, false);
+  assert.deepEqual(parseConfig(legacy), parsed);
+  const code = `sl1.${deflateSync(Buffer.from(canonicalJson(legacy), "utf8")).toString("base64url")}`;
+  const decoded = decodeConfig(code);
+  assert.deepEqual(decoded, parsed);
+  assert.equal(decoded.credit, true);
+  assert.equal(decoded.design.palette, "ink");
+  assert.equal("branchPrefix" in decoded.git, false);
+});
+
+test("bad configs name the field and how to fix it", () => {
+  assert.equal(
+    configError({ ...config, design: { ...config.design, palette: "nope" } }),
+    'design.palette: Expected one of: "ink", "harbor", "ember", "iris", "grove", "dusk". Received "nope"',
+  );
+  assert.equal(
+    configError({ ...config, schemaVersion: 2 }),
+    "schemaVersion: Expected 1, received 2",
+  );
+  assert.equal(configError({ ...config, extra: true }), '(root): Unrecognized key: "extra"');
+  assert.equal(
+    configError({ ...config, stack: { ...config.stack, extra: true } }),
+    'stack: Unrecognized key: "extra"',
+  );
+  assert.equal(
+    configError({ ...config, agents: ["cursor", "cursor"] }),
+    "agents: Agents must be unique",
+  );
+  assert.equal(
+    configError({ ...config, quality: ["commitlint"] }),
+    "quality: commitlint needs the husky gate so the commit-msg hook is installed",
+  );
+  assert.equal(
+    configError({ ...config, codeStyle: { ...config.codeStyle, maxFileLines: 10 } }),
+    "codeStyle.maxFileLines: Must be at least 80",
+  );
+  assert.equal(
+    configError({ ...config, codeStyle: { ...config.codeStyle, maxFileLines: 80.5 } }),
+    "codeStyle.maxFileLines: Expected an integer",
+  );
+  assert.equal(configError({ ...config, agents: [] }), "agents: Must include at least 1 item");
+  assert.equal(
+    configError({ ...config, stack: "next" }),
+    "stack: Expected object, received string",
+  );
+  const { stack, ...missingStack } = config;
+  assert.equal(stack.framework, "nextjs");
+  assert.equal(configError(missingStack), "stack: Required");
+  assert.equal(configError(null), "(root): Expected object, received null");
+  const name = projectNameSchema.safeParse("My App");
+  assert.equal(name.success, false);
+  if (!name.success) {
+    assert.equal(
+      name.error.issues.map((issue) => issue.message).join("\n"),
+      "Use a lowercase project name such as my-app",
+    );
+  }
+});
+
+function configError(input: unknown): string {
+  try {
+    parseConfig(input);
+  } catch (error) {
+    return formatConfigError(error);
+  }
+  throw new Error("expected config to fail");
+}
 
 test("a legacy branchPrefix is accepted and then ignored", () => {
   const parsed = parseConfig(config);
