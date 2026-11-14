@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -109,10 +109,62 @@ test("the configurator adds --no-credit when the credit toggle is off", () => {
 });
 
 test("a bad flag value exits 1 and lists the allowed values", () => {
+  const cases = [
+    ["preset", "startup-speed, team-strict, hackathon-2h"],
+    ["palette", "ink, harbor, ember, iris, grove, dusk"],
+    ["font", "Inter, Geist, system"],
+    ["radius", "none, sm, md, lg"],
+    ["agents", "cursor, claude-code"],
+    ["lint", "biome, eslint"],
+    ["branching", "trunk, github-flow, agent-safe"],
+  ] as const;
+  for (const [flag, allowed] of cases) {
+    const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+    const result = run(path.join(root, "my-app"), [`--${flag}`, "nope", "--skip-install"]);
+    assert.equal(result.status, 1, result.stderr);
+    assert.match(result.stderr, new RegExp(`Unknown --${flag} "nope"`));
+    assert.match(result.stderr, new RegExp(allowed.replaceAll(".", "\\.")));
+    assert.doesNotMatch(result.stderr, /ZodError|invalid_type/);
+  }
+});
+
+test("a bad config file exits 1 with a readable field error", () => {
   const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
-  const result = run(path.join(root, "my-app"), ["--palette", "nope", "--skip-install"]);
+  const preset = JSON.parse(
+    readFileSync(path.resolve(here, "../../packs/presets/startup-speed.json"), "utf8"),
+  ) as { design: { palette: string }; agents: string[] };
+  preset.design.palette = "nope";
+  const paletteFile = path.join(root, "palette.json");
+  writeFileSync(paletteFile, JSON.stringify(preset));
+  const palette = run(path.join(root, "my-app"), ["--config", paletteFile, "--skip-install"]);
+  assert.equal(palette.status, 1);
+  assert.match(
+    palette.stderr,
+    /design\.palette: Expected one of: "ink", "harbor", "ember", "iris", "grove", "dusk"/,
+  );
+  assert.doesNotMatch(palette.stderr, /ZodError|invalid_value|\$Zod/);
+
+  preset.design.palette = "ink";
+  preset.agents = ["cursor", "cursor"];
+  const agentsFile = path.join(root, "agents.json");
+  writeFileSync(agentsFile, JSON.stringify(preset));
+  const agents = run(path.join(root, "agents-app"), ["--config", agentsFile, "--skip-install"]);
+  assert.equal(agents.status, 1);
+  assert.equal(agents.stderr.trim(), "agents: Agents must be unique");
+
+  const broken = path.join(root, "broken.json");
+  writeFileSync(broken, "{");
+  const syntax = run(path.join(root, "other-app"), ["--config", broken, "--skip-install"]);
+  assert.equal(syntax.status, 1);
+  assert.match(syntax.stderr, /JSON/);
+  assert.doesNotMatch(syntax.stderr, /ZodError/);
+});
+
+test("a directory name that is not a slug exits 1", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  const result = run(path.join(root, "My App"), ["--preset", "startup-speed", "--skip-install"]);
   assert.equal(result.status, 1);
-  assert.match(result.stderr, /ink, harbor, ember, iris, grove, dusk/);
+  assert.match(result.stderr, /Use a lowercase project name such as my-app/);
 });
 
 test("--config together with --palette exits 1", () => {
