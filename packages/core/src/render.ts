@@ -1,13 +1,10 @@
-import Handlebars from "handlebars";
 import { canonicalJson } from "./canonical.js";
 import { SeedlayerError } from "./errors.js";
 import { resolvePacks } from "./resolve.js";
 import { AGENTS_MD_MAX_LINES, SEEDLAYER_VERSION, type SeedlayerConfig } from "./schema.js";
+import { renderTemplate } from "./template.js";
 import { designTokens } from "./tokens.js";
 import type { AgentRule, Lockfile, PackDefinition, RenderContext, RenderedFile } from "./types.js";
-
-const hbs = Handlebars.create();
-hbs.registerHelper("eq", (left: unknown, right: unknown) => left === right);
 
 const WORKFLOW_SUMMARIES: Record<SeedlayerConfig["workflow"][number], string> = {
   plan: "Record the active branch, sync it, and write a short plan before editing.",
@@ -33,7 +30,7 @@ export function renderProject(input: {
       const contents =
         output.template === "@build"
           ? built[output.to]
-          : renderTemplate(item.pack, output.template, context);
+          : renderPackTemplate(item.pack, output.template, context);
       if (contents === undefined) {
         throw new SeedlayerError(`Pack "${item.pack.manifest.name}" did not render ${output.to}`);
       }
@@ -150,13 +147,17 @@ function writeRule(files: Map<string, string>, rule: AgentRule, cursor: boolean)
   files.set(rule.cursorPath, cursorRule);
 }
 
-function renderTemplate(pack: PackDefinition, template: string, context: RenderContext): string {
+function renderPackTemplate(
+  pack: PackDefinition,
+  template: string,
+  context: RenderContext,
+): string {
   const source = pack.templates[template];
   if (source === undefined) {
     throw new SeedlayerError(`Pack "${pack.manifest.name}" is missing template "${template}"`);
   }
   try {
-    return hbs.compile(source, { noEscape: true, strict: true })(context);
+    return renderTemplate(source, context, template);
   } catch (error) {
     const message = error instanceof Error ? error.message : "template failed";
     throw new SeedlayerError(`Template ${pack.manifest.name}/${template} failed: ${message}`);
