@@ -225,6 +225,11 @@
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        min-inline-size: 0;
+        font: inherit;
       }
 
       .chip {
@@ -407,23 +412,23 @@
           </section>
           <section>
             <h2>Radius</h2>
-            <div class="chips" id="radii" role="group" aria-label="Radius"></div>
+            <fieldset class="chips" id="radii" aria-label="Radius"></fieldset>
           </section>
           <section>
             <h2>Font</h2>
-            <div class="chips" id="fonts" role="group" aria-label="Font"></div>
+            <fieldset class="chips" id="fonts" aria-label="Font"></fieldset>
           </section>
           <section>
             <h2>Standards</h2>
-            <div class="chips" id="linters" role="group" aria-label="Standards"></div>
+            <fieldset class="chips" id="linters" aria-label="Standards"></fieldset>
           </section>
           <section>
             <h2>Git</h2>
-            <div class="chips" id="gits" role="group" aria-label="Git"></div>
+            <fieldset class="chips" id="gits" aria-label="Git"></fieldset>
           </section>
           <section>
             <h2>Agents</h2>
-            <div class="chips" id="agents" role="group" aria-label="Agents"></div>
+            <fieldset class="chips" id="agents" aria-label="Agents"></fieldset>
           </section>
         </div>
 
@@ -697,7 +702,7 @@
         highlight.style.color = palette.highlightFg;
         surface.style.background = "#fff";
         surface.style.color = palette.fg;
-        surface.style.border = "1px solid color-mix(in srgb, " + palette.fg + " 12%, transparent)";
+        surface.style.border = `1px solid color-mix(in srgb, ${palette.fg} 12%, transparent)`;
 
         document.querySelector("#command").textContent = command();
         const gitLabel = labelOf(GITS, state.git);
