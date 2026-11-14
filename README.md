@@ -81,10 +81,10 @@ A config code is `sl1.` plus URL-safe deflate of the canonical JSON. No backend.
 
 ## Documentation
 
-| Topic                        | Doc                                              |
-| ---------------------------- | ------------------------------------------------ |
-| Branches, commits, releases  | [docs/BRANCHING.md](docs/BRANCHING.md)           |
-| Name, license, and scope     | [docs/decisions.md](docs/decisions.md)           |
+| Topic                       | Doc                                    |
+| --------------------------- | -------------------------------------- |
+| Branches, commits, releases | [docs/BRANCHING.md](docs/BRANCHING.md) |
+| Name, license, and scope    | [docs/decisions.md](docs/decisions.md) |
 
 ## License
 

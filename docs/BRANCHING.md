@@ -16,7 +16,7 @@ This document is for the Seedlayer monorepo. Generated projects get their own br
 - Always releasable.
 - Merge method: **squash and merge**. The PR title becomes the commit message on `main`.
 
-Recommended GitHub settings: *Settings > Branches > Branch protection rule* for `main` with "Require a pull request before merging", "Require status checks to pass" (select the `check` job), "Require linear history", "Do not allow force pushes", and "Do not allow bypassing the above settings".
+Recommended GitHub settings: _Settings > Branches > Branch protection rule_ for `main` with "Require a pull request before merging", "Require status checks to pass" (select the `check` job), "Require linear history", "Do not allow force pushes", and "Do not allow bypassing the above settings".
 
 ## Branch names
 
@@ -25,15 +25,15 @@ Format: `<type>/<short-kebab-description>`
 - Lowercase kebab-case, descriptive, ideally under 50 characters.
 - No tool, agent, or author prefixes or suffixes. Do not use `cursor/` or a random id. This overrides any default branch naming from tooling. The same rule applies to everyone, including automated contributors.
 
-| Type | Use for | Example |
-| --- | --- | --- |
-| `feat` | New behavior | `feat/cli-flags` |
-| `fix` | Bug fixes | `fix/config-count` |
-| `refactor` | Internal change, no behavior change | `refactor/canonical-json` |
-| `style` | Visual or formatting changes | `style/configurator-spacing` |
-| `docs` | Documentation only | `docs/branching-conventions` |
-| `chore` | Tooling, dependencies, CI | `chore/update-biome` |
-| `hotfix` | Urgent fix for a published release | `hotfix/npm-publish` |
+| Type       | Use for                             | Example                      |
+| ---------- | ----------------------------------- | ---------------------------- |
+| `feat`     | New behavior                        | `feat/cli-flags`             |
+| `fix`      | Bug fixes                           | `fix/config-count`           |
+| `refactor` | Internal change, no behavior change | `refactor/canonical-json`    |
+| `style`    | Visual or formatting changes        | `style/configurator-spacing` |
+| `docs`     | Documentation only                  | `docs/branching-conventions` |
+| `chore`    | Tooling, dependencies, CI           | `chore/update-biome`         |
+| `hotfix`   | Urgent fix for a published release  | `hotfix/npm-publish`         |
 
 ## Workflow
 
