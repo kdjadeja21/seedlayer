@@ -4,9 +4,27 @@ Configure a project in the web UI, run one command, and get a repo with the app 
 
 ```bash
 npx seedlayer my-app --preset startup-speed
+npx seedlayer my-app --preset startup-speed --palette harbor --agents cursor,claude-code
 ```
 
 The same config always produces the same files. The web UI and the CLI share `@seedlayer/core`, so they cannot disagree.
+
+## Flags
+
+`--preset` defaults to `startup-speed`. The other flags override that preset. Pass only the ones you want to change.
+
+| Flag          | Values                                            |
+| ------------- | ------------------------------------------------- |
+| `--preset`    | `startup-speed`, `team-strict`, `hackathon-2h`    |
+| `--palette`   | `ink`, `harbor`, `ember`, `iris`, `grove`, `dusk` |
+| `--font`      | `Inter`, `Geist`, `system`                        |
+| `--radius`    | `none`, `sm`, `md`, `lg`                          |
+| `--agents`    | comma-separated `cursor`, `claude-code`           |
+| `--lint`      | `biome`, `eslint`                                 |
+| `--branching` | `trunk`, `github-flow`, `agent-safe`              |
+| `--config`    | an `sl1.` code or a JSON file                     |
+
+`--config` cannot be combined with the flags above. With no config flags, an interactive terminal asks for the preset, palette, and agents. A non-interactive shell uses `startup-speed`.
 
 This branch is a cursor-lab experiment. `main` stays the starter. The name, license, and scope notes are in [docs/decisions.md](docs/decisions.md).
 
@@ -41,6 +59,7 @@ pnpm dev
 Open the configurator at http://localhost:3000. Copy the command, copy the shareable link, or download a zip of the rendered files. The zip does not install dependencies. The CLI does, then runs lint and typecheck.
 
 ```bash
+node packages/cli/dist/bin.js my-app --preset team-strict --lint biome --radius lg
 node packages/cli/dist/bin.js my-app --config sl1....
 node packages/cli/dist/bin.js my-app --config ./config.json
 ```

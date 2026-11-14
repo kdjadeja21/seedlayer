@@ -1,5 +1,5 @@
 {
-  "name": "seedlayer",
+  "name": "@seedlayer/monorepo",
   "version": "0.1.0",
   "private": true,
   "description": "Configure a project once and generate the app scaffold plus the AI context layer.",

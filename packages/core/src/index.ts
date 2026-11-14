@@ -1,6 +1,7 @@
 export { canonicalJson } from "./canonical.js";
 export { decodeConfig, encodeConfig } from "./codec.js";
 export { SeedlayerError } from "./errors.js";
+export { withConfigFlags } from "./flags.js";
 export type { PackManifest, PackOption, PackOutput } from "./manifest.js";
 export {
   packManifestSchema,
@@ -18,10 +19,17 @@ export type {
   WorkflowCommand,
 } from "./schema.js";
 export {
+  AGENT_IDS,
   AGENTS_MD_MAX_LINES,
+  BRANCHING_IDS,
+  FONT_IDS,
   formatConfigError,
+  LINTER_IDS,
+  PALETTE_IDS,
+  PRESET_IDS,
   parseConfig,
   projectNameSchema,
+  RADIUS_IDS,
   SCHEMA_VERSION,
   SEEDLAYER_VERSION,
   seedlayerConfigSchema,

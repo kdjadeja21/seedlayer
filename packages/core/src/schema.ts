@@ -4,9 +4,15 @@ export const SCHEMA_VERSION = 1 as const;
 export const SEEDLAYER_VERSION = "0.1.0";
 export const AGENTS_MD_MAX_LINES = 80;
 
-export const presetIdSchema = z.enum(["startup-speed", "team-strict", "hackathon-2h", "custom"]);
+export const PRESET_IDS = ["startup-speed", "team-strict", "hackathon-2h", "custom"] as const;
+export const PALETTE_IDS = ["ink", "harbor", "ember", "iris", "grove", "dusk"] as const;
+export const RADIUS_IDS = ["none", "sm", "md", "lg"] as const;
+export const FONT_IDS = ["Inter", "Geist", "system"] as const;
+export const LINTER_IDS = ["biome", "eslint"] as const;
+export const BRANCHING_IDS = ["trunk", "github-flow", "agent-safe"] as const;
+export const AGENT_IDS = ["cursor", "claude-code"] as const;
 
-const PALETTE_IDS = ["ink", "harbor", "ember", "iris", "grove", "dusk"] as const;
+export const presetIdSchema = z.enum(PRESET_IDS);
 
 const LEGACY_PALETTES: Record<string, (typeof PALETTE_IDS)[number]> = {
   neutral: "ink",
@@ -21,11 +27,10 @@ export const paletteSchema = z.preprocess((value) => {
   }
   return value;
 }, z.enum(PALETTE_IDS));
-export const agentTargetSchema = z.enum(["cursor", "claude-code"]);
+export const agentTargetSchema = z.enum(AGENT_IDS);
 export const workflowCommandSchema = z.enum(["plan", "implement", "review"]);
 export const qualityGateSchema = z.enum(["husky", "commitlint", "ci", "pr-review"]);
 
-const AGENT_ORDER = ["cursor", "claude-code"] as const;
 const WORKFLOW_ORDER = ["plan", "implement", "review"] as const;
 const QUALITY_ORDER = ["husky", "commitlint", "ci", "pr-review"] as const;
 
@@ -48,14 +53,14 @@ export const seedlayerConfigSchema = z
     design: z
       .object({
         palette: paletteSchema,
-        radius: z.enum(["none", "sm", "md", "lg"]),
-        fontSans: z.enum(["Inter", "Geist", "system"]),
+        radius: z.enum(RADIUS_IDS),
+        fontSans: z.enum(FONT_IDS),
         density: z.enum(["compact", "comfortable", "spacious"]),
       })
       .strict(),
     codeStyle: z
       .object({
-        linter: z.enum(["biome", "eslint"]),
+        linter: z.enum(LINTER_IDS),
         strictness: z.enum(["relaxed", "standard", "strict"]),
         maxFileLines: z.number().int().min(80).max(1000),
         folders: z.enum(["feature", "type"]),
@@ -65,7 +70,7 @@ export const seedlayerConfigSchema = z
       .strict(),
     git: z
       .object({
-        workflow: z.enum(["trunk", "github-flow", "agent-safe"]),
+        workflow: z.enum(BRANCHING_IDS),
         branchPrefix: z
           .string()
           .regex(/^[a-z0-9][a-z0-9._/-]*$/, "Branch prefix must be a lowercase path fragment")
@@ -123,7 +128,7 @@ export function parseConfig(input: unknown): SeedlayerConfig {
   const parsed = seedlayerConfigSchema.parse(input);
   return {
     ...parsed,
-    agents: AGENT_ORDER.filter((agent) => parsed.agents.includes(agent)),
+    agents: AGENT_IDS.filter((agent) => parsed.agents.includes(agent)),
     workflow: WORKFLOW_ORDER.filter((command) => parsed.workflow.includes(command)),
     quality: QUALITY_ORDER.filter((gate) => parsed.quality.includes(gate)),
   };

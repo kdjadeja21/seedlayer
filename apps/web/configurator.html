@@ -451,7 +451,7 @@
             <button type="button" class="copy" id="copy">Copy command</button>
             <div class="meta">
               <span id="summary"></span>
-              <span>61 files</span>
+              <span id="file-count"></span>
             </div>
           </div>
         </aside>
@@ -573,6 +573,7 @@
         { value: 8, label: "8px" },
         { value: 12, label: "12px" },
       ];
+      const RADIUS_FLAG = { 0: "none", 4: "sm", 8: "md", 12: "lg" };
       const FONTS = [
         { value: "Inter", label: "Inter" },
         { value: "Geist", label: "Geist" },
@@ -621,24 +622,63 @@
         return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) ? "" : "invalid";
       }
 
-      function encodeSettings() {
-        const json = JSON.stringify({
-          agents: state.agents,
-          font: state.font,
-          git: state.git,
-          linter: state.linter,
-          palette: state.palette,
-          preset: state.preset,
-          radius: state.radius,
-        });
-        const bytes = new TextEncoder().encode(json);
-        let binary = "";
-        for (const byte of bytes) binary += String.fromCharCode(byte);
-        return btoa(binary);
+      function quoteProject(name) {
+        return /\s/.test(name) ? `"${name}"` : name;
       }
 
       function command() {
-        return `npx seedlayer ${state.name} --config ${encodeSettings()}`;
+        const preset = PRESETS[state.preset];
+        const parts = ["npx", "seedlayer", quoteProject(state.name), "--preset", state.preset];
+        if (state.palette !== preset.palette) parts.push("--palette", state.palette);
+        if (state.font !== preset.font) parts.push("--font", state.font);
+        if (RADIUS_FLAG[state.radius] !== RADIUS_FLAG[preset.radius]) {
+          parts.push("--radius", RADIUS_FLAG[state.radius]);
+        }
+        if (state.linter !== preset.linter) parts.push("--lint", state.linter);
+        if (state.git !== preset.git) parts.push("--branching", state.git);
+        if (state.agents.join(",") !== preset.agents.join(",")) {
+          parts.push("--agents", state.agents.join(","));
+        }
+        return parts.join(" ");
+      }
+
+      let listedKey = "";
+
+      function refreshCount() {
+        if (typeof fetch !== "function") return;
+        const key = [
+          state.preset,
+          state.palette,
+          state.font,
+          state.radius,
+          state.linter,
+          state.git,
+          state.agents.join(","),
+        ].join("|");
+        if (key === listedKey) return;
+        listedKey = key;
+        const params = new URLSearchParams({
+          preset: state.preset,
+          palette: state.palette,
+          font: state.font,
+          radius: RADIUS_FLAG[state.radius],
+          lint: state.linter,
+          branching: state.git,
+          agents: state.agents.join(","),
+        });
+        fetch(`/api/count?${params}`)
+          .then((response) => (response.ok ? response.json() : null))
+          .then((body) => {
+            if (key !== listedKey) return;
+            if (!body || typeof body.count !== "number") {
+              listedKey = "";
+              return;
+            }
+            document.querySelector("#file-count").textContent = `${body.count} files`;
+          })
+          .catch(() => {
+            if (listedKey === key) listedKey = "";
+          });
       }
 
       function labelOf(list, value) {
@@ -670,7 +710,17 @@
         document.documentElement.style.setProperty("--accent", palette.accent);
 
         for (const button of document.querySelectorAll("#presets button")) {
-          button.setAttribute("aria-pressed", button.dataset.preset === state.preset ? "true" : "false");
+          const id = button.dataset.preset;
+          const preset = PRESETS[id];
+          const selected =
+            id === state.preset &&
+            state.palette === preset.palette &&
+            state.radius === preset.radius &&
+            state.font === preset.font &&
+            state.linter === preset.linter &&
+            state.git === preset.git &&
+            state.agents.join(",") === preset.agents.join(",");
+          button.setAttribute("aria-pressed", selected ? "true" : "false");
         }
         for (const button of document.querySelectorAll("#palettes button")) {
           button.setAttribute("aria-pressed", button.dataset.palette === state.palette ? "true" : "false");
@@ -708,6 +758,7 @@
         const gitLabel = labelOf(GITS, state.git);
         const lintLabel = labelOf(LINTERS, state.linter);
         document.querySelector("#summary").textContent = `${palette.label} · ${lintLabel} · ${gitLabel}`;
+        refreshCount();
 
         const invalid = nameError(state.name);
         nameInput.setAttribute("aria-invalid", invalid ? "true" : "false");
@@ -722,7 +773,6 @@
 
       function edit(partial) {
         Object.assign(state, partial);
-        state.preset = null;
         paint();
       }
 

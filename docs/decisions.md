@@ -15,12 +15,12 @@ Checked on 12 November 2026.
 
 Seedlayer is the name that stays installable:
 
-| Surface                                             | Result                                                                                                                                         |
-| --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| npm `seedlayer`, `create-seedlayer`, `@seedlayer/*` | No packages.                                                                                                                                   |
-| GitHub user or org `seedlayer`                      | Not registered.                                                                                                                                |
-| Existing repo                                       | [francoisnt/seedlayer](https://github.com/francoisnt/seedlayer) is an unrelated SQLAlchemy seeder. It does not occupy the org or the npm name. |
-| Domains                                             | `seedlayer.dev`, `seedlayer.app`, `seedlayer.ai`, and `seedlayer.io` were unregistered. `seedlayer.com` is registered.                         |
+| Surface                         | Result                                                                                                                                         |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| npm `seedlayer`, `@seedlayer/*` | No packages.                                                                                                                                   |
+| GitHub user or org `seedlayer`  | Not registered.                                                                                                                                |
+| Existing repo                   | [francoisnt/seedlayer](https://github.com/francoisnt/seedlayer) is an unrelated SQLAlchemy seeder. It does not occupy the org or the npm name. |
+| Domains                         | `seedlayer.dev`, `seedlayer.app`, `seedlayer.ai`, and `seedlayer.io` were unregistered. `seedlayer.com` is registered.                         |
 
 The CLI is `npx seedlayer`. Config codes use the prefix `sl1.`. Generated repos record state in `.seedlayer/`.
 
@@ -52,10 +52,6 @@ One rule body is written twice: `docs/agents/<id>.md` for people, and `.cursor/r
 ## Sync
 
 Not in this version. Generated docs include `<!-- seedlayer:begin -->` and `<!-- seedlayer:end -->` markers so a later sync can three-way merge those blocks. `.seedlayer/lock.json` stores the config and pack versions, with no timestamp, so a render stays deterministic.
-
-## Zip download
-
-The web UI offers a zip of the rendered files. The CLI is still the path that installs dependencies and runs lint and typecheck. The zip exists because `create-seedlayer` is not published yet.
 
 ## Monorepo support
 
