@@ -57,6 +57,7 @@ test("preset flags write the chosen config", () => {
   assert.deepEqual(config.agents, ["cursor"]);
   assert.equal(config.codeStyle.linter, "eslint");
   assert.equal(config.git.workflow, "trunk");
+  assert.equal(config.git.branchPrefix, undefined);
 });
 
 test("a bad flag value exits 1 and lists the allowed values", () => {
@@ -104,9 +105,32 @@ test("each configurator preset command exits 0", () => {
   );
 });
 
+test("claude-only generation points commands at claude skills", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  const target = path.join(root, "my-app");
+  const result = run(target, [
+    "--preset",
+    "team-strict",
+    "--agents",
+    "claude-code",
+    "--skip-install",
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  const implement = readFileSync(path.join(target, ".claude/commands/implement.md"), "utf8");
+  assert.match(implement, /\.claude\/skills\/implement\/SKILL\.md/);
+  assert.doesNotMatch(implement, /\.cursor\/skills/);
+  assert.equal(existsSync(path.join(target, ".claude/skills/implement/SKILL.md")), true);
+  assert.equal(existsSync(path.join(target, ".cursor/commands/implement.md")), false);
+  assert.equal(existsSync(path.join(target, ".cursor/rules/branching.mdc")), false);
+  const config = JSON.parse(readFileSync(path.join(target, ".seedlayer/config.json"), "utf8"));
+  assert.equal(config.git.branchPrefix, undefined);
+  assert.match(readFileSync(path.join(target, "CLAUDE.md"), "utf8"), /recorded branch/);
+});
+
 function assertPresetGitRules(target: string, claude: boolean): void {
   const activeBranch = /active branch/;
   const noToolPrefix = /no `cursor\/`, no `agent\/`, no random IDs/;
+  const recorded = /recorded branch/;
   const typeName = /<type>\/<short-kebab-description>/;
   const syncFirst = /git fetch origin/;
   const branching = readFileSync(path.join(target, ".cursor/rules/branching.mdc"), "utf8");
@@ -116,19 +140,30 @@ function assertPresetGitRules(target: string, claude: boolean): void {
   for (const contents of [branching, agents, doc]) {
     assert.match(contents, activeBranch);
     assert.match(contents, noToolPrefix);
+    assert.match(contents, recorded);
+    assert.doesNotMatch(contents, /unless (?:that branch|the active branch) is/i);
   }
   assert.match(branching, typeName);
   assert.match(branching, syncFirst);
   assert.match(sync, /alwaysApply: true/);
   assert.match(sync, syncFirst);
   assert.doesNotMatch(doc, /agent\/<ticket>|branch from main/i);
+  const cursorImplement = readFileSync(path.join(target, ".cursor/commands/implement.md"), "utf8");
+  assert.match(cursorImplement, /\.cursor\/skills\/implement\/SKILL\.md/);
+  assert.equal(existsSync(path.join(target, ".cursor/skills/implement/SKILL.md")), true);
   if (!claude) {
     assert.equal(existsSync(path.join(target, "CLAUDE.md")), false);
+    assert.equal(existsSync(path.join(target, ".claude/commands/implement.md")), false);
     return;
   }
   const claudeDoc = readFileSync(path.join(target, "CLAUDE.md"), "utf8");
   assert.match(claudeDoc, activeBranch);
   assert.match(claudeDoc, noToolPrefix);
+  assert.match(claudeDoc, recorded);
+  const claudeImplement = readFileSync(path.join(target, ".claude/commands/implement.md"), "utf8");
+  assert.match(claudeImplement, /\.claude\/skills\/implement\/SKILL\.md/);
+  assert.doesNotMatch(claudeImplement, /\.cursor\/skills/);
+  assert.equal(existsSync(path.join(target, ".claude/skills/implement/SKILL.md")), true);
 }
 
 function run(target: string, args: string[]) {

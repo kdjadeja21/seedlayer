@@ -25,12 +25,17 @@ Format: `<type>/<short-kebab-description>`
 
 ## Workflow
 
-1. Note the active branch, the branch checked out when you start. Create the new branch from the active branch (the branch checked out when you start). Never commit directly to the active branch itself; always work on a new branch from it.
-2. Sync that branch. See [Sync the active branch first](#sync-the-active-branch-first). Do not switch to or merge in `main`.
-3. Create `<type>/<short-kebab-description>` from the updated active branch.
-4. Commit with Conventional Commits: `type(scope): summary`.
-5. Open the pull request back into the active branch it was created from, unless the active branch is `main`. Squash merge only. No force-push or history rewrites on shared branches.
-6. Before pushing, `npm run lint`, `npm run typecheck`, and `npm run build` must pass.
+Record the active branch when the task starts. Create the work branch from it and target the PR back into that recorded branch. Target `main` only if `main` was the recorded active branch. Do not switch to or merge `main` automatically.
+
+1. Record the active branch, the branch checked out when the task starts.
+2. Sync that recorded branch. See [Sync the active branch first](#sync-the-active-branch-first). If it has no remote, use it as it is locally.
+3. Create the work branch `<type>/<short-kebab-description>` from the synced branch. Never commit on the recorded branch.
+4. Implement the change.
+5. Run `npm run lint`, `npm run typecheck`, and `npm run build`.
+6. Commit with Conventional Commits (`type(scope): summary`) and push.
+7. Open the pull request into the recorded branch.
+8. Review the pull request. A human review is required before merge.
+9. Squash merge. No force-push or history rewrites on shared branches.
 
 Keep branches short-lived and scoped to one logical change.
 
@@ -40,15 +45,15 @@ A human review is required before merge. `main` stays deployable. The pull reque
 
 ## Sync the active branch first
 
-Before any change:
+Record the active branch when the task starts, before any change:
 
-1. Note the active branch name.
+1. Record the active branch name.
 2. `git fetch origin`
-3. Pull the active branch from origin so it is up to date.
+3. Pull that recorded branch from origin so it is up to date.
 4. Resolve conflicts.
-5. Create the new `<type>/<short-kebab-description>` branch from it.
+5. Create the work branch from that recorded branch.
 
-If the active branch has no remote, use it as it is locally. Do not switch to or merge in `main`.
+If the recorded branch has no remote, use it as it is locally. Do not switch to or merge `main` automatically.
 
 ## Commits
 

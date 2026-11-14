@@ -3,7 +3,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { AGENTS_MD_MAX_LINES, encodeConfig, renderProject } from "@seedlayer/core";
+import type { SeedlayerConfig } from "@seedlayer/core";
+import { AGENTS_MD_MAX_LINES, encodeConfig, parseConfig, renderProject } from "@seedlayer/core";
 import { listPresets, loadCatalog, loadPreset } from "../src/index.ts";
 
 const catalog = loadCatalog();
@@ -78,6 +79,8 @@ test("every preset ships the same git rules to every agent", () => {
     assert.match(file(rendered, "BRANCHING.md"), /npm run lint/);
     assert.match(file(rendered, "BRANCHING.md"), /npm run typecheck/);
     assert.match(file(rendered, "BRANCHING.md"), /npm run build/);
+    assertRecordedTarget(rendered, preset.config.agents);
+    assert.equal(JSON.parse(file(rendered, ".seedlayer/config.json")).git.branchPrefix, undefined);
     assert.equal(
       rendered.some((entry) => /agent\/<ticket>|branch from main/i.test(entry.contents)),
       false,
@@ -90,6 +93,52 @@ test("every preset ships the same git rules to every agent", () => {
     "hackathon-2h": 48,
   });
   assert.equal(packSourcesMention(/agent\/<ticket>|branch from main/i), false);
+});
+
+test("every workflow and agent combination agrees on git rules and skill paths", () => {
+  const workflows = ["trunk", "github-flow", "agent-safe"] as const;
+  const agentSets = [["cursor"], ["claude-code"], ["cursor", "claude-code"]] as const;
+  const base = loadPreset("startup-speed");
+  for (const workflow of workflows) {
+    for (const agents of agentSets) {
+      const config = parseConfig({
+        ...base,
+        preset: "custom",
+        agents: [...agents],
+        git: { workflow, commits: "conventional", maxPrLines: 400 },
+      });
+      const rendered = render(config);
+      assert.equal(
+        JSON.parse(file(rendered, ".seedlayer/config.json")).git.branchPrefix,
+        undefined,
+      );
+      assertRecordedTarget(rendered, config.agents);
+      assert.match(file(rendered, "BRANCHING.md"), /1\. Record the active branch/);
+      assert.match(file(rendered, "BRANCHING.md"), /2\. Sync that recorded branch/);
+      assert.match(file(rendered, "BRANCHING.md"), /3\. Create the work branch/);
+      assert.match(file(rendered, "BRANCHING.md"), /4\. Implement the change/);
+      assert.match(file(rendered, "BRANCHING.md"), /5\. Run `npm run lint`/);
+      assert.match(
+        file(rendered, "BRANCHING.md"),
+        /7\. Open the pull request into the recorded branch/,
+      );
+      assert.match(file(rendered, "BRANCHING.md"), /8\. Review the pull request/);
+      if (workflow === "trunk") assert.match(file(rendered, "BRANCHING.md"), /vX\.Y\.Z/);
+      if (workflow === "github-flow") {
+        assert.match(file(rendered, "BRANCHING.md"), /human review is required before merge/);
+      }
+      if (workflow === "agent-safe") {
+        assert.match(file(rendered, "BRANCHING.md"), /worktree/);
+        assert.match(file(rendered, "BRANCHING.md"), /Agents never merge their own pull requests/);
+      }
+      assert.equal(
+        rendered.some((entry) =>
+          /unless (?:that branch|the active branch) is/i.test(entry.contents),
+        ),
+        false,
+      );
+    }
+  }
 });
 
 test("startup-speed matches the published preset id", () => {
@@ -106,12 +155,48 @@ function assertGitRules(files: ReturnType<typeof render>, claude: boolean): void
     const contents = file(files, filePath);
     assert.match(contents, activeBranch);
     assert.match(contents, noToolPrefix);
+    assert.match(contents, /recorded branch/);
   }
   if (!claude) return;
   const claudeDoc = file(files, "CLAUDE.md");
   assert.match(claudeDoc, activeBranch);
   assert.match(claudeDoc, noToolPrefix);
+  assert.match(claudeDoc, /recorded branch/);
   assert.match(claudeDoc, /Read BRANCHING\.md before any git command/);
+}
+
+function assertRecordedTarget(
+  files: ReturnType<typeof render>,
+  agents: SeedlayerConfig["agents"],
+): void {
+  const recorded =
+    /Record the active branch when the task starts\. Create the work branch from it and target the PR back into that recorded branch\. Target `main` only if `main` was the recorded active branch\./;
+  assert.match(file(files, "BRANCHING.md"), recorded);
+  assert.match(file(files, "AGENTS.md"), recorded);
+  if (agents.includes("claude-code")) assert.match(file(files, "CLAUDE.md"), recorded);
+  for (const command of ["plan", "implement", "review"] as const) {
+    if (agents.includes("cursor") && exists(files, `.cursor/commands/${command}.md`)) {
+      const commandFile = file(files, `.cursor/commands/${command}.md`);
+      const skill = `.cursor/skills/${command}/SKILL.md`;
+      assert.match(commandFile, new RegExp(skill.replaceAll("/", "\\/")));
+      assert.equal(exists(files, skill), true);
+      assert.doesNotMatch(commandFile, /\.claude\/skills/);
+    } else {
+      assert.equal(exists(files, `.cursor/commands/${command}.md`), false);
+    }
+    if (agents.includes("claude-code") && exists(files, `.claude/commands/${command}.md`)) {
+      const commandFile = file(files, `.claude/commands/${command}.md`);
+      const skill = `.claude/skills/${command}/SKILL.md`;
+      assert.match(commandFile, new RegExp(skill.replaceAll("/", "\\/")));
+      assert.equal(exists(files, skill), true);
+      assert.doesNotMatch(commandFile, /\.cursor\/skills/);
+    } else if (!agents.includes("claude-code")) {
+      assert.equal(exists(files, `.claude/commands/${command}.md`), false);
+    }
+  }
+  if (!agents.includes("cursor")) {
+    assert.equal(exists(files, ".cursor/rules/branching.mdc"), false);
+  }
 }
 
 function render(config: ReturnType<typeof loadPreset>) {

@@ -27,7 +27,6 @@
   },
   "git": {
     "workflow": "github-flow",
-    "branchPrefix": "feature/",
     "commits": "conventional",
     "maxPrLines": 250
   },

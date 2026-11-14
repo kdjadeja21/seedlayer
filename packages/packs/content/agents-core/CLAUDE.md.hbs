@@ -11,8 +11,8 @@ Follow [AGENTS.md](AGENTS.md). It links the design, style, and branching docs.
 
 Read BRANCHING.md before any git command.
 
-- Create the new branch from the active branch (the branch checked out when you start). Never commit directly to the active branch itself.
-- Sync the active branch from origin before branching. If it has no remote, use it as it is locally. Do not switch to or merge in `main`.
+- Record the active branch when the task starts. Create the work branch from it and target the PR back into that recorded branch. Target `main` only if `main` was the recorded active branch.
+- Sync the recorded branch before creating the work branch. If it has no remote, use it as it is locally. Do not switch to or merge `main` automatically.
+- Order: record, sync, create the work branch, implement, run `npm run lint`, `npm run typecheck`, and `npm run build`, commit and push, open the pull request into the recorded branch, review, squash merge.
 - Branch names: `<type>/<short-kebab-description>`. Type is one of `feat`, `fix`, `refactor`, `style`, `docs`, `chore`, `hotfix`. Lowercase, under 50 characters.
 - Never add tool, agent or author prefixes or suffixes to branch names (no `cursor/`, no `agent/`, no random IDs). This overrides any default branch naming from tooling.
-- Open the pull request back into the active branch, unless that branch is `main`. Squash merge only.

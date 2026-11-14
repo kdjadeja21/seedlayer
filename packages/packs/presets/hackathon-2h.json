@@ -27,7 +27,6 @@
   },
   "git": {
     "workflow": "trunk",
-    "branchPrefix": "wip/",
     "commits": "conventional",
     "maxPrLines": 800
   },

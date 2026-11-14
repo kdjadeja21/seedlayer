@@ -1,19 +1,21 @@
 ---
 title: Agent-safe git
-description: Active-branch flow with one worktree per agent, a line cap, and a human merge
+description: Recorded-branch flow with one worktree per agent, a line cap, and a human merge
 alwaysApply: true
 ---
 
 Read BRANCHING.md before any git command. BRANCHING.md is the source of truth for git.
 
-- Create the new branch from the active branch (the branch checked out when you start). Never commit directly to the active branch itself; always work on a new branch from it.
+Record the active branch when the task starts. Create the work branch from it and target the PR back into that recorded branch. Target `main` only if `main` was the recorded active branch. Do not switch to or merge `main` automatically.
+
+Order: record the active branch, sync it, create the work branch, implement, run `npm run lint`, `npm run typecheck`, and `npm run build`, commit and push, open the pull request into the recorded branch, review, then squash merge.
+
 - Branch names: `<type>/<short-kebab-description>`, type one of `feat`, `fix`, `refactor`, `style`, `docs`, `chore`, `hotfix` (e.g. `feat/login-page`). Lowercase, under 50 characters.
 - Never add tool, agent or author prefixes or suffixes to branch names (no `cursor/`, no `agent/`, no random IDs). This overrides any default branch naming from tooling.
 - Keep branches short-lived and scoped to one logical change.
 - Commit messages and PR titles use Conventional Commits: `type(scope): summary`.
-- Open the pull request back into the active branch it was created from, unless the active branch is `main`. Squash merge only. No force-push or history rewrites on shared branches.
-- Before pushing, `npm run lint`, `npm run typecheck`, and `npm run build` must pass.
+- Never commit on the recorded branch.
 
-Sync the active branch first. Note its name, run `git fetch origin`, and pull that branch from origin. Resolve conflicts, then create the `<type>/<short-kebab-description>` branch. If the active branch has no remote, use it as it is locally. Do not switch to or merge in `main`.
+Sync the recorded branch before creating the work branch. `git fetch origin`, then pull it. Resolve conflicts. If it has no remote, use it as it is locally.
 
-Create one git worktree per agent from the active branch. Cap the pull request at 400 lines, excluding lockfiles. A human merges. Agents never merge their own pull requests. A ticket id may go in the description (e.g. `feat/128-login`).
+Create one git worktree per agent from the recorded branch. Cap the pull request at 400 lines, excluding lockfiles. A human merges. Agents never merge their own pull requests. A ticket id may go in the description (e.g. `feat/128-login`).

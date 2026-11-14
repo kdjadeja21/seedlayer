@@ -10,9 +10,10 @@ const hbs = Handlebars.create();
 hbs.registerHelper("eq", (left: unknown, right: unknown) => left === right);
 
 const WORKFLOW_SUMMARIES: Record<SeedlayerConfig["workflow"][number], string> = {
-  plan: "Read the rules and write a short plan before editing.",
-  implement: "Make the planned change inside the file-size and token rules.",
-  review: "Check the diff against design, style, and branching before a pull request.",
+  plan: "Record the active branch, sync it, and write a short plan before editing.",
+  implement:
+    "Create the work branch from the recorded branch, make the change, run checks, and open the pull request into that branch.",
+  review: "Review the open pull request. Do not merge it.",
 };
 
 export function renderProject(input: {

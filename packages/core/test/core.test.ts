@@ -4,8 +4,10 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { deflateSync } from "node:zlib";
 import type { PackDefinition, SeedlayerConfig } from "../src/index.ts";
 import {
+  canonicalJson,
   decodeConfig,
   encodeConfig,
   parseConfig,
@@ -42,7 +44,6 @@ const config = {
   },
   git: {
     workflow: "agent-safe",
-    branchPrefix: "agent/",
     commits: "conventional",
     maxPrLines: 400,
   },
@@ -103,7 +104,7 @@ test("resolver applies option defaults, dependencies, and conflicts", () => {
       requires: ["agents-core"],
       conflicts: ["branching-trunk"],
       options: {
-        branchPrefix: { type: "string", default: "zzz/", from: "git.branchPrefix" },
+        maxPrLines: { type: "number", default: 10, from: "git.maxPrLines" },
       },
       outputs: [],
       agentRules: [],
@@ -133,7 +134,7 @@ test("resolver applies option defaults, dependencies, and conflicts", () => {
     resolved.map((item) => item.pack.manifest.name),
     ["agents-core", "branching-agent-safe"],
   );
-  assert.equal(resolved[1]?.options.branchPrefix, "agent/");
+  assert.equal(resolved[1]?.options.maxPrLines, 400);
   assert.throws(() =>
     resolveSelection(
       ["branching-agent-safe", "branching-trunk"],
@@ -141,6 +142,20 @@ test("resolver applies option defaults, dependencies, and conflicts", () => {
       parseConfig(config),
     ),
   );
+});
+
+test("a legacy branchPrefix is accepted and then ignored", () => {
+  const parsed = parseConfig(config);
+  const legacy = {
+    ...parsed,
+    git: { ...parsed.git, branchPrefix: "agent/" },
+  };
+  assert.deepEqual(parseConfig(legacy), parsed);
+  const code = `sl1.${deflateSync(Buffer.from(canonicalJson(legacy), "utf8")).toString("base64url")}`;
+  const decoded = decodeConfig(code);
+  assert.deepEqual(decoded, parsed);
+  assert.equal("branchPrefix" in decoded.git, false);
+  assert.equal(encodeConfig(decoded), encodeConfig(parsed));
 });
 
 test("zip archives round-trip", () => {

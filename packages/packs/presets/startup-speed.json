@@ -27,7 +27,6 @@
   },
   "git": {
     "workflow": "agent-safe",
-    "branchPrefix": "agent/",
     "commits": "conventional",
     "maxPrLines": 400
   },

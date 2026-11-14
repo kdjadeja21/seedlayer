@@ -1,10 +1,12 @@
 ---
 
 name: review
-description: Review the diff against Seedlayer rules before opening a pull request.
+description: Review the open pull request against Seedlayer rules.
 ---
 
 # Review
+
+The pull request targets the recorded active branch. Record the active branch when the task starts. Create the work branch from it and target the PR back into that recorded branch. Target `main` only if `main` was the recorded active branch.
 
 Check the diff against DESIGN.md, CODE_STYLE.md, and BRANCHING.md. Report:
 
@@ -13,5 +15,6 @@ Check the diff against DESIGN.md, CODE_STYLE.md, and BRANCHING.md. Report:
 - A diff over the pull request line cap
 - Missing tests
 - A branch name that is not `<type>/<short-kebab-description>`, or that adds a tool, agent, or author prefix
+- A pull request that does not target the recorded branch
 
-Do not merge.
+Do not merge. On an agent-safe branch, a human merges. Agents never merge their own pull requests.
