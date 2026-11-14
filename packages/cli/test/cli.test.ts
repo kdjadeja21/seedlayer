@@ -60,6 +60,54 @@ test("preset flags write the chosen config", () => {
   assert.equal(config.git.branchPrefix, undefined);
 });
 
+test("--no-credit omits the home page credit", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  const target = path.join(root, "my-app");
+  const result = run(target, ["--preset", "startup-speed", "--no-credit", "--skip-install"]);
+  assert.equal(result.status, 0, result.stderr);
+  const config = JSON.parse(readFileSync(path.join(target, ".seedlayer/config.json"), "utf8"));
+  assert.equal(config.credit, false);
+  assert.equal(existsSync(path.join(target, "components/seedlayer-credit.tsx")), false);
+  const page = readFileSync(path.join(target, "app/page.tsx"), "utf8");
+  assert.equal(page.includes("SeedlayerCredit"), false);
+  const kept = run(path.join(root, "kept"), ["--preset", "hackathon-2h", "--skip-install"]);
+  assert.equal(kept.status, 0, kept.stderr);
+  const keptConfig = JSON.parse(
+    readFileSync(path.join(root, "kept/.seedlayer/config.json"), "utf8"),
+  );
+  assert.equal(keptConfig.credit, true);
+  assert.equal(existsSync(path.join(root, "kept/components/seedlayer-credit.tsx")), true);
+  assert.match(readFileSync(path.join(root, "kept/app/page.tsx"), "utf8"), /<SeedlayerCredit \/>/);
+});
+
+test("--config together with --no-credit exits 1", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  const result = run(path.join(root, "my-app"), [
+    "--config",
+    "sl1.not-a-real-code",
+    "--no-credit",
+    "--skip-install",
+  ]);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /--no-credit/);
+});
+
+test("the configurator adds --no-credit when the credit toggle is off", () => {
+  const page = loadConfigurator();
+  const credit = page.querySelector("#credit");
+  assert.equal(credit.tag, "button");
+  credit.click();
+  assert.equal(
+    page.querySelector("#command").textContent,
+    "npx seedlayer my-app --preset startup-speed --no-credit",
+  );
+  page.querySelector("#presets button").click();
+  assert.equal(
+    page.querySelector("#command").textContent,
+    "npx seedlayer my-app --preset startup-speed",
+  );
+});
+
 test("a bad flag value exits 1 and lists the allowed values", () => {
   const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
   const result = run(path.join(root, "my-app"), ["--palette", "nope", "--skip-install"]);
@@ -238,6 +286,7 @@ function createDocument() {
   for (const id of ["presets", "palettes", "radii", "fonts", "linters", "gits", "agents"]) {
     settings.append(named(id));
   }
+  settings.append(named("credit", "button"));
   const stage = named("stage");
   stage.append(named("stage-name"), named("primary"), named("highlight"), named("surface"));
   documentElement.append(

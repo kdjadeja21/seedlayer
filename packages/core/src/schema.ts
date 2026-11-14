@@ -38,6 +38,7 @@ export const seedlayerConfigSchema = z
   .object({
     schemaVersion: z.literal(SCHEMA_VERSION),
     preset: presetIdSchema,
+    credit: z.boolean().default(true),
     stack: z
       .object({
         framework: z.enum(["nextjs"]),

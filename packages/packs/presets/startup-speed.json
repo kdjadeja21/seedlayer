@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "preset": "startup-speed",
+  "credit": true,
   "stack": {
     "framework": "nextjs",
     "language": "typescript",

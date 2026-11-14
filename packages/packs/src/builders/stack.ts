@@ -285,30 +285,21 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 }
 
 function page(ctx: RenderContext): string {
-  if (!ctx.flags.shadcn) {
-    return `export default function HomePage() {
-  return (
-    <main className="page-shell">
-      <p className="eyebrow">${ctx.projectName}</p>
-      <h1>Tokens first.</h1>
-      <p className="lede">
-        Colors, type, and spacing come from app/tokens.css. Do not hardcode a color when a token
-        exists.
-      </p>
-      <div className="actions">
-        <button className="token-button" type="button">
-          Continue
-        </button>
-        <span className="highlight-chip">Highlight</span>
-      </div>
-    </main>
-  );
-}
-`;
+  const imports: string[] = [];
+  if (ctx.config.credit) {
+    imports.push(`import { SeedlayerCredit } from "@/components/seedlayer-credit";`);
   }
-  return `import { Button } from "${ctx.buttonImport}";
-
-export default function HomePage() {
+  if (ctx.flags.shadcn) {
+    imports.push(`import { Button } from "${ctx.buttonImport}";`);
+  }
+  const header = imports.length > 0 ? `${imports.join("\n")}\n\n` : "";
+  const primary = ctx.flags.shadcn
+    ? `        <Button type="button">Continue</Button>`
+    : `        <button className="token-button" type="button">
+          Continue
+        </button>`;
+  const credit = ctx.config.credit ? "\n      <SeedlayerCredit />" : "";
+  return `${header}export default function HomePage() {
   return (
     <main className="page-shell">
       <p className="eyebrow">${ctx.projectName}</p>
@@ -318,9 +309,9 @@ export default function HomePage() {
         exists.
       </p>
       <div className="actions">
-        <Button type="button">Continue</Button>
+${primary}
         <span className="highlight-chip">Highlight</span>
-      </div>
+      </div>${credit}
     </main>
   );
 }

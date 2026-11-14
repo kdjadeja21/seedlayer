@@ -50,6 +50,7 @@ const config = {
   agents: ["claude-code", "cursor"],
   workflow: ["review", "plan"],
   quality: ["commitlint", "husky"],
+  credit: true,
 } satisfies SeedlayerConfig;
 
 test("parseConfig canonicalizes array order and rejects commitlint without husky", () => {
@@ -142,6 +143,20 @@ test("resolver applies option defaults, dependencies, and conflicts", () => {
       parseConfig(config),
     ),
   );
+});
+
+test("configs and sl1 codes without credit default to true", () => {
+  const parsed = parseConfig(config);
+  const { credit, ...legacy } = parsed;
+  assert.equal(credit, true);
+  assert.equal("credit" in legacy, false);
+  assert.equal(parseConfig(legacy).credit, true);
+  const raw = canonicalJson(legacy);
+  assert.equal(raw.includes('"credit"'), false);
+  const code = `sl1.${deflateSync(Buffer.from(raw, "utf8")).toString("base64url")}`;
+  const decoded = decodeConfig(code);
+  assert.equal(decoded.credit, true);
+  assert.deepEqual(decoded, parsed);
 });
 
 test("a legacy branchPrefix is accepted and then ignored", () => {
