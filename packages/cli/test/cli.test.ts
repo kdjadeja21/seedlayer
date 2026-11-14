@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -114,7 +114,7 @@ test("a bad flag value exits 1 and lists the allowed values", () => {
     ["palette", "ink, harbor, ember, iris, grove, dusk"],
     ["font", "Inter, Geist, system"],
     ["radius", "none, sm, md, lg"],
-    ["agents", "cursor, claude-code"],
+    ["agents", "cursor, claude-code. claude is a short name for claude-code"],
     ["lint", "biome, eslint"],
     ["branching", "trunk, github-flow, agent-safe"],
   ] as const;
@@ -227,6 +227,78 @@ test("claude-only generation points commands at claude skills", () => {
   assert.match(readFileSync(path.join(target, "CLAUDE.md"), "utf8"), /recorded branch/);
 });
 
+test("--version and -v print the package.json version and exit 0", () => {
+  const { version } = JSON.parse(readFileSync(path.join(here, "../package.json"), "utf8")) as {
+    version: string;
+  };
+  for (const flag of ["--version", "-v"]) {
+    const result = spawnSync(process.execPath, ["--import", "tsx", bin, flag], {
+      cwd: path.resolve(here, "../../.."),
+      encoding: "utf8",
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.stdout, `${version}\n`);
+    assert.equal(result.stderr, "");
+  }
+  const help = spawnSync(process.execPath, ["--import", "tsx", bin, "--help"], {
+    cwd: path.resolve(here, "../../.."),
+    encoding: "utf8",
+  });
+  assert.equal(help.status, 0, help.stderr);
+  assert.match(help.stdout, /--version, -v/);
+  assert.match(help.stdout, /claude is a short name for claude-code/);
+});
+
+test("--agents claude writes the same files as claude-code", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  const canonical = path.join(root, "canonical", "my-app");
+  const alias = path.join(root, "alias", "my-app");
+  const canonicalResult = run(canonical, [
+    "--preset",
+    "startup-speed",
+    "--agents",
+    "claude-code",
+    "--skip-install",
+  ]);
+  const aliasResult = run(alias, [
+    "--preset",
+    "startup-speed",
+    "--agents",
+    "claude",
+    "--skip-install",
+  ]);
+  assert.equal(canonicalResult.status, 0, canonicalResult.stderr);
+  assert.equal(aliasResult.status, 0, aliasResult.stderr);
+  assert.match(canonicalResult.stdout, /Wrote 48 files/);
+  assert.match(aliasResult.stdout, /Wrote 48 files/);
+  assert.equal(listFiles(canonical).length, 48);
+  assertSameFiles(canonical, alias);
+  const config = JSON.parse(readFileSync(path.join(alias, ".seedlayer/config.json"), "utf8"));
+  assert.deepEqual(config.agents, ["claude-code"]);
+
+  const both = path.join(root, "both", "my-app");
+  const mixed = path.join(root, "mixed", "my-app");
+  const bothResult = run(both, [
+    "--preset",
+    "startup-speed",
+    "--agents",
+    "cursor,claude-code",
+    "--skip-install",
+  ]);
+  const mixedResult = run(mixed, [
+    "--preset",
+    "startup-speed",
+    "--agents",
+    "cursor,claude",
+    "--skip-install",
+  ]);
+  assert.equal(bothResult.status, 0, bothResult.stderr);
+  assert.equal(mixedResult.status, 0, mixedResult.stderr);
+  assertSameFiles(both, mixed);
+  const mixedConfig = JSON.parse(readFileSync(path.join(mixed, ".seedlayer/config.json"), "utf8"));
+  assert.deepEqual(mixedConfig.agents, ["cursor", "claude-code"]);
+});
+
 function assertPresetGitRules(target: string, claude: boolean): void {
   const activeBranch = /active branch/;
   const noToolPrefix = /no `cursor\/`, no `agent\/`, no random IDs/;
@@ -271,6 +343,33 @@ function run(target: string, args: string[]) {
     cwd: path.resolve(here, "../../.."),
     encoding: "utf8",
   });
+}
+
+function assertSameFiles(left: string, right: string): void {
+  const leftFiles = listFiles(left);
+  const rightFiles = listFiles(right);
+  assert.deepEqual(rightFiles, leftFiles);
+  for (const file of leftFiles) {
+    assert.equal(
+      readFileSync(path.join(right, file), "utf8"),
+      readFileSync(path.join(left, file), "utf8"),
+      file,
+    );
+  }
+}
+
+function listFiles(dir: string): string[] {
+  const files: string[] = [];
+  const walk = (current: string) => {
+    for (const entry of readdirSync(current, { withFileTypes: true })) {
+      if (entry.name === ".git") continue;
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else files.push(path.relative(dir, full));
+    }
+  };
+  walk(dir);
+  return files.sort();
 }
 
 function loadConfigurator() {
