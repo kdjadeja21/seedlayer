@@ -39,11 +39,11 @@ One stack until the three presets are solid:
 - Database and auth are `none`
 - Hosting is `vercel` or `none`
 
-## Template engine: Handlebars
+## Template engine
 
-Markdown, CSS, and agent docs are Handlebars templates. JSON and TypeScript skeletons are built in TypeScript because JSX braces and JSON formatting fight a template language. Both paths go through the pack manifest, so a pack still declares every output path.
+Markdown, CSS, and agent docs are `.hbs` files rendered by a small built-in engine in `@seedlayer/core`. It supports `{{path}}`, `{{#if}}`, `{{else}}`, `{{#each}}`, and `(eq path "text")`. JSON and TypeScript skeletons are built in TypeScript because JSX braces and JSON formatting fight a template language. Both paths go through the pack manifest, so a pack still declares every output path.
 
-Handlebars runs with escaping off and strict mode on. A missing variable fails the render.
+Escaping is off. A missing variable or an unknown tag fails the render.
 
 ## Agent files
 
