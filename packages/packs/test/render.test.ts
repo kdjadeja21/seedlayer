@@ -177,6 +177,24 @@ test("startup-speed matches the published preset id", () => {
   assert.deepEqual(preset.agents, ["cursor", "claude-code"]);
 });
 
+test("generated apps pin Next.js to the stack builder version", () => {
+  const minimum = "16.4.6";
+  const pin = readNextPin();
+  assert.ok(isAtLeast(pin, minimum), `${pin} is below ${minimum}`);
+  for (const id of ["startup-speed", "team-strict", "hackathon-2h"] as const) {
+    const config = loadPreset(id);
+    const pkg = JSON.parse(file(render(config), "package.json")) as {
+      dependencies: { next?: string };
+      devDependencies: Record<string, string>;
+    };
+    assert.equal(pkg.dependencies.next, pin);
+    const eslintConfigNext = pkg.devDependencies["eslint-config-next"];
+    if (config.codeStyle.linter === "eslint" || eslintConfigNext !== undefined) {
+      assert.equal(eslintConfigNext, pin);
+    }
+  }
+});
+
 function assertCredit(files: ReturnType<typeof render>, enabled: boolean): void {
   assert.equal(JSON.parse(file(files, ".seedlayer/config.json")).credit, enabled);
   assert.equal(file(files, "app/layout.tsx").includes("SeedlayerCredit"), false);
@@ -250,6 +268,32 @@ function assertRecordedTarget(
 
 function render(config: ReturnType<typeof loadPreset>) {
   return renderProject({ config, projectName: "my-app", catalog });
+}
+
+function readNextPin(): string {
+  const sourcePath = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    "../src/builders/stack.ts",
+  );
+  const source = readFileSync(sourcePath, "utf8");
+  const match = /const VERSIONS = \{[\s\S]*?\n\s*next:\s*"([^"]+)"/.exec(source);
+  assert.ok(match, "stack.ts is missing the next version pin");
+  return match[1];
+}
+
+function isAtLeast(version: string, minimum: string): boolean {
+  const left = parseVersion(version);
+  const right = parseVersion(minimum);
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return left[index] > right[index];
+  }
+  return true;
+}
+
+function parseVersion(version: string): [number, number, number] {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version);
+  assert.ok(match, `expected a major.minor.patch version, received ${version}`);
+  return [Number(match[1]), Number(match[2]), Number(match[3])];
 }
 
 function file(files: ReturnType<typeof render>, filePath: string): string {
