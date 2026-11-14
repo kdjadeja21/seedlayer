@@ -52,6 +52,7 @@ async function main(): Promise<void> {
       agents: { type: "string" },
       lint: { type: "string" },
       branching: { type: "string" },
+      "no-credit": { type: "boolean", default: false },
       "skip-install": { type: "boolean", default: false },
       "skip-verify": { type: "boolean", default: false },
       force: { type: "boolean", default: false },
@@ -101,16 +102,18 @@ async function main(): Promise<void> {
 }
 
 async function resolveConfig(
-  values: Partial<Record<(typeof CONFIG_FLAGS)[number] | "config", string>>,
+  values: Partial<Record<(typeof CONFIG_FLAGS)[number] | "config", string>> & {
+    "no-credit"?: boolean;
+  },
 ): Promise<SeedlayerConfig> {
   const passed = CONFIG_FLAGS.filter((flag) => values[flag] !== undefined);
-  if (values.config !== undefined && passed.length > 0) {
-    throw new SeedlayerError(
-      `Don't pass --config with ${passed.map((flag) => `--${flag}`).join(", ")}.`,
-    );
+  const noCredit = values["no-credit"] === true;
+  if (values.config !== undefined && (passed.length > 0 || noCredit)) {
+    const names = [...passed.map((flag) => `--${flag}`), ...(noCredit ? ["--no-credit"] : [])];
+    throw new SeedlayerError(`Don't pass --config with ${names.join(", ")}.`);
   }
   if (values.config !== undefined) return readConfig(values.config);
-  if (passed.length === 0) {
+  if (passed.length === 0 && !noCredit) {
     if (process.stdin.isTTY && process.stdout.isTTY) return promptConfig();
     return loadPreset("startup-speed");
   }
@@ -123,6 +126,7 @@ async function resolveConfig(
     lint: oneOf("lint", values.lint, LINTER_IDS),
     branching: oneOf("branching", values.branching, BRANCHING_IDS),
     agents: values.agents === undefined ? undefined : parseAgents(values.agents),
+    credit: noCredit ? false : undefined,
   });
 }
 
@@ -232,6 +236,7 @@ Options:
   --agents <list>          comma-separated ${AGENT_IDS.join(", ")}
   --lint <name>            ${LINTER_IDS.join(", ")}
   --branching <name>       ${BRANCHING_IDS.join(", ")}
+  --no-credit              Omit the Seedlayer credit on the home page
   --skip-install           Write files only
   --skip-verify            Install dependencies and skip lint and typecheck
   --force                  Replace a non-empty directory

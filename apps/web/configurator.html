@@ -430,6 +430,12 @@
             <h2>Agents</h2>
             <fieldset class="chips" id="agents" aria-label="Agents"></fieldset>
           </section>
+          <section>
+            <h2>Credit</h2>
+            <button type="button" class="chip" id="credit" aria-pressed="true">
+              Seedlayer credit
+            </button>
+          </section>
         </div>
 
         <aside class="preview">
@@ -601,6 +607,7 @@
         linter: "biome",
         git: "agent-safe",
         agents: ["cursor", "claude-code"],
+        credit: true,
         name: "my-app",
       };
 
@@ -639,6 +646,7 @@
         if (state.agents.join(",") !== preset.agents.join(",")) {
           parts.push("--agents", state.agents.join(","));
         }
+        if (!state.credit) parts.push("--no-credit");
         return parts.join(" ");
       }
 
@@ -654,6 +662,7 @@
           state.linter,
           state.git,
           state.agents.join(","),
+          state.credit ? "credit" : "no-credit",
         ].join("|");
         if (key === listedKey) return;
         listedKey = key;
@@ -665,6 +674,7 @@
           lint: state.linter,
           branching: state.git,
           agents: state.agents.join(","),
+          credit: state.credit ? "true" : "false",
         });
         fetch(`/api/count?${params}`)
           .then((response) => (response.ok ? response.json() : null))
@@ -719,7 +729,8 @@
             state.font === preset.font &&
             state.linter === preset.linter &&
             state.git === preset.git &&
-            state.agents.join(",") === preset.agents.join(",");
+            state.agents.join(",") === preset.agents.join(",") &&
+            state.credit;
           button.setAttribute("aria-pressed", selected ? "true" : "false");
         }
         for (const button of document.querySelectorAll("#palettes button")) {
@@ -730,6 +741,7 @@
         pressChips(document.querySelector("#linters"), "linter", (value) => value === state.linter);
         pressChips(document.querySelector("#gits"), "git", (value) => value === state.git);
         pressChips(document.querySelector("#agents"), "agent", (value) => state.agents.includes(value));
+        document.querySelector("#credit").setAttribute("aria-pressed", state.credit ? "true" : "false");
 
         const stage = document.querySelector("#stage");
         const radius = `${state.radius}px`;
@@ -785,6 +797,7 @@
         state.linter = preset.linter;
         state.git = preset.git;
         state.agents = preset.agents.slice();
+        state.credit = true;
         paint();
       }
 
@@ -854,6 +867,10 @@
         }
         if (button.dataset.git) {
           edit({ git: button.dataset.git });
+          return;
+        }
+        if (button.id === "credit") {
+          edit({ credit: !state.credit });
           return;
         }
         if (button.dataset.agent) {

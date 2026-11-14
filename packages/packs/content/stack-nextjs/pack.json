@@ -30,6 +30,11 @@
       "when": "stack.components:shadcn+codeStyle.naming:pascal-components"
     },
     { "template": "@build", "to": ".gitignore" },
+    {
+      "template": "seedlayer-credit.tsx.hbs",
+      "to": "components/seedlayer-credit.tsx",
+      "when": "credit:true"
+    },
     { "template": "README.md.hbs", "to": "README.md" },
     { "template": "env.example.hbs", "to": ".env.example" },
     { "template": "feature.md.hbs", "to": "features/README.md", "when": "codeStyle.folders:feature" },

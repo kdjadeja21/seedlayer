@@ -23,6 +23,7 @@ export async function GET(request: Request): Promise<Response> {
       lint: oneOf(url.searchParams.get("lint"), LINTER_IDS),
       branching: oneOf(url.searchParams.get("branching"), BRANCHING_IDS),
       agents: agents === null ? undefined : parseAgents(agents),
+      credit: parseCredit(url.searchParams.get("credit")),
     });
     const files = renderProject({
       config,
@@ -42,6 +43,13 @@ function oneOf<T extends string>(value: string | null, allowed: readonly T[]): T
     throw new Error(`Unknown value "${value}". Expected one of: ${allowed.join(", ")}`);
   }
   return match;
+}
+
+function parseCredit(value: string | null): boolean | undefined {
+  if (value === null || value === "") return undefined;
+  if (value === "true") return true;
+  if (value === "false") return false;
+  throw new Error(`Unknown credit "${value}". Expected true or false.`);
 }
 
 function parseAgents(value: string): string[] {

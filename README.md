@@ -22,6 +22,7 @@ The same config always produces the same files. The web UI and the CLI share `@s
 | `--agents`    | comma-separated `cursor`, `claude-code`           |
 | `--lint`      | `biome`, `eslint`                                 |
 | `--branching` | `trunk`, `github-flow`, `agent-safe`              |
+| `--no-credit` | omit the home page Seedlayer credit               |
 | `--config`    | an `sl1.` code or a JSON file                     |
 
 `--config` cannot be combined with the flags above. With no config flags, an interactive terminal asks for the preset, palette, and agents. A non-interactive shell uses `startup-speed`.

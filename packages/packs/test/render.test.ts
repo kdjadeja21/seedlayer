@@ -86,11 +86,12 @@ test("every preset ships the same git rules to every agent", () => {
       false,
     );
   }
+  // The home page credit adds components/seedlayer-credit.tsx.
   // sync-branch-first adds docs/agents/sync-branch-first.md and .cursor/rules/sync-branch-first.mdc.
   assert.deepEqual(fileCounts, {
-    "startup-speed": 63,
-    "team-strict": 65,
-    "hackathon-2h": 48,
+    "startup-speed": 64,
+    "team-strict": 66,
+    "hackathon-2h": 49,
   });
   assert.equal(packSourcesMention(/agent\/<ticket>|branch from main/i), false);
 });
@@ -141,12 +142,60 @@ test("every workflow and agent combination agrees on git rules and skill paths",
   }
 });
 
+test("the home page credit is included unless credit is false", () => {
+  const onCounts = {
+    "startup-speed": 64,
+    "team-strict": 66,
+    "hackathon-2h": 49,
+  };
+  const offCounts = {
+    "startup-speed": 63,
+    "team-strict": 65,
+    "hackathon-2h": 48,
+  };
+  for (const preset of listPresets()) {
+    const on = render(preset.config);
+    assert.equal(on.length, onCounts[preset.id]);
+    assertCredit(on, true);
+    const off = render(parseConfig({ ...preset.config, credit: false }));
+    assert.equal(off.length, offCounts[preset.id]);
+    assert.equal(off.length, on.length - 1);
+    assertCredit(off, false);
+  }
+
+  const { credit, ...legacy } = loadPreset("startup-speed");
+  assert.equal(credit, true);
+  const rendered = render(parseConfig(legacy));
+  assert.equal(rendered.length, onCounts["startup-speed"]);
+  assertCredit(rendered, true);
+});
+
 test("startup-speed matches the published preset id", () => {
   const preset = loadPreset("startup-speed");
   assert.equal(preset.preset, "startup-speed");
   assert.equal(preset.git.workflow, "agent-safe");
   assert.deepEqual(preset.agents, ["cursor", "claude-code"]);
 });
+
+function assertCredit(files: ReturnType<typeof render>, enabled: boolean): void {
+  assert.equal(JSON.parse(file(files, ".seedlayer/config.json")).credit, enabled);
+  assert.equal(file(files, "app/layout.tsx").includes("SeedlayerCredit"), false);
+  assert.equal(exists(files, "components/seedlayer-credit.tsx"), enabled);
+  const page = file(files, "app/page.tsx");
+  assert.equal(page.includes("SeedlayerCredit"), enabled);
+  if (!enabled) return;
+  assert.match(page, /import \{ SeedlayerCredit \} from "@\/components\/seedlayer-credit";/);
+  assert.match(page, /<SeedlayerCredit \/>/);
+  const credit = file(files, "components/seedlayer-credit.tsx");
+  assert.match(credit, /<footer/);
+  assert.match(credit, /text-muted-foreground/);
+  assert.match(credit, /text-sm/);
+  assert.match(credit, /text-center/);
+  assert.match(credit, /Built with/);
+  assert.match(credit, /href="https:\/\/github.com\/kdjadeja21\/seedlayer"/);
+  assert.match(credit, /rel="noopener"/);
+  assert.match(credit, /target="_blank"/);
+}
 
 function assertGitRules(files: ReturnType<typeof render>, claude: boolean): void {
   const activeBranch = /active branch/;

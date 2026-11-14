@@ -9,10 +9,12 @@ export function withConfigFlags(
     lint?: string;
     branching?: string;
     agents?: readonly string[];
+    credit?: boolean;
   },
 ): SeedlayerConfig {
   return parseConfig({
     ...base,
+    ...(flags.credit !== undefined ? { credit: flags.credit } : {}),
     design: {
       ...base.design,
       ...(flags.palette !== undefined ? { palette: flags.palette } : {}),

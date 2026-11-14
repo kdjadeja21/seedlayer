@@ -181,7 +181,9 @@ function matchOne(part: string, config: SeedlayerConfig): boolean {
   if (path === "workflow") {
     return config.workflow.includes(expected as SeedlayerConfig["workflow"][number]);
   }
-  return readPath(config, path) === expected;
+  const actual = readPath(config, path);
+  if (typeof actual === "boolean") return (actual ? "true" : "false") === expected;
+  return actual === expected;
 }
 
 function readPath(value: unknown, path: string): unknown {

@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "preset": "hackathon-2h",
+  "credit": true,
   "stack": {
     "framework": "nextjs",
     "language": "typescript",
