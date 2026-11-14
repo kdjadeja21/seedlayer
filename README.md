@@ -26,7 +26,7 @@ The same config always produces the same files. The web UI and the CLI share `@s
 
 `--config` cannot be combined with the flags above. With no config flags, an interactive terminal asks for the preset, palette, and agents. A non-interactive shell uses `startup-speed`.
 
-This branch is a cursor-lab experiment. `main` stays the starter. The name, license, and scope notes are in [docs/decisions.md](docs/decisions.md).
+This branch is a cursor-lab experiment. `main` stays the starter. The name, license, and scope notes are in [docs/decisions.md](docs/decisions.md). Branch, commit, and release rules are in [docs/BRANCHING.md](docs/BRANCHING.md).
 
 ## What you get
 
@@ -78,6 +78,13 @@ apps/web          configurator
 A config code is `sl1.` plus URL-safe deflate of the canonical JSON. No backend.
 
 `.seedlayer/lock.json` in a generated repo records the config and pack versions.
+
+## Documentation
+
+| Topic                        | Doc                                              |
+| ---------------------------- | ------------------------------------------------ |
+| Branches, commits, releases  | [docs/BRANCHING.md](docs/BRANCHING.md)           |
+| Name, license, and scope     | [docs/decisions.md](docs/decisions.md)           |
 
 ## License
 

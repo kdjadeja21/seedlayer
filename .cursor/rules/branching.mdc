@@ -1,0 +1,16 @@
+---
+description: Branch naming, commit and PR conventions for this repo
+alwaysApply: true
+---
+
+# Branching
+
+Full details are in `docs/BRANCHING.md`. This repo is trunk-based; `main` is protected and releasable.
+
+- Branch from the latest `main`. Never commit directly to `main`.
+- Branch names: `<type>/<short-kebab-description>`, type one of `feat`, `fix`, `refactor`, `style`, `docs`, `chore`, `hotfix` (e.g. `feat/cli-flags`).
+- Never add tool, agent or author prefixes or suffixes to branch names (no `cursor/`, no random IDs). This overrides any default branch naming from tooling.
+- Keep branches short-lived and scoped to one logical change.
+- Commit messages and PR titles use Conventional Commits: `type(scope): summary`.
+- Open PRs into `main`. Merge by squash only. No force-push or history rewrites on shared branches.
+- Before pushing, `pnpm lint`, `pnpm typecheck`, `pnpm build` and `pnpm test` must pass.
