@@ -436,6 +436,22 @@
               Seedlayer credit
             </button>
           </section>
+          <section>
+            <h2>Package manager</h2>
+            <fieldset class="chips" id="managers" aria-label="Package manager"></fieldset>
+          </section>
+          <section>
+            <h2>Repository</h2>
+            <button type="button" class="chip" id="git-init" aria-pressed="true">
+              Initialize git
+            </button>
+          </section>
+          <section>
+            <h2>Dev server</h2>
+            <button type="button" class="chip" id="immediate" aria-pressed="false">
+              Start after install
+            </button>
+          </section>
         </div>
 
         <aside class="preview">
@@ -454,6 +470,7 @@
               </div>
             </div>
             <pre class="command" id="command"></pre>
+            <pre class="command" id="code"></pre>
             <button type="button" class="copy" id="copy">Copy command</button>
             <div class="meta">
               <span id="summary"></span>
@@ -464,8 +481,10 @@
       </div>
     </div>
 
+    <div id="seedlayer-choices" hidden>__SEEDLAYER_CHOICES__</div>
     <script>
-      const PALETTES = [
+      const CHOICES = JSON.parse(document.querySelector("#seedlayer-choices").textContent);
+      const PALETTE_DETAILS = [
         {
           id: "ink",
           label: "Ink",
@@ -539,8 +558,11 @@
           danger: "#b91c1c",
         },
       ];
+      const PALETTES = CHOICES.palette
+        .map((id) => PALETTE_DETAILS.find((item) => item.id === id))
+        .filter(Boolean);
 
-      const PRESETS = {
+      const PRESET_DETAILS = {
         "startup-speed": {
           label: "Startup speed",
           detail: "Agent-safe branches, Biome, every gate.",
@@ -572,42 +594,51 @@
           agents: ["cursor"],
         },
       };
+      const PRESETS = Object.fromEntries(
+        CHOICES.preset.filter((id) => PRESET_DETAILS[id]).map((id) => [id, PRESET_DETAILS[id]]),
+      );
 
-      const RADII = [
-        { value: 0, label: "0" },
-        { value: 4, label: "4px" },
-        { value: 8, label: "8px" },
-        { value: 12, label: "12px" },
-      ];
-      const RADIUS_FLAG = { 0: "none", 4: "sm", 8: "md", 12: "lg" };
-      const FONTS = [
-        { value: "Inter", label: "Inter" },
-        { value: "Geist", label: "Geist" },
-        { value: "system", label: "System" },
-      ];
-      const LINTERS = [
-        { value: "biome", label: "Biome" },
-        { value: "eslint", label: "ESLint" },
-      ];
-      const GITS = [
-        { value: "trunk", label: "Trunk" },
-        { value: "github-flow", label: "GitHub Flow" },
-        { value: "agent-safe", label: "Agent-safe" },
-      ];
-      const AGENTS = [
-        { value: "cursor", label: "Cursor" },
-        { value: "claude-code", label: "Claude Code" },
-      ];
+      const RADIUS_PX = { none: 0, sm: 4, md: 8, lg: 12 };
+      const RADII = CHOICES.radius.map((value) => ({
+        value: RADIUS_PX[value],
+        label: value === "none" ? "0" : `${RADIUS_PX[value]}px`,
+      }));
+      const RADIUS_FLAG = Object.fromEntries(
+        CHOICES.radius.map((value) => [RADIUS_PX[value], value]),
+      );
+      const LABELS = {
+        Inter: "Inter",
+        Geist: "Geist",
+        system: "System",
+        biome: "Biome",
+        eslint: "ESLint",
+        trunk: "Trunk",
+        "github-flow": "GitHub Flow",
+        "agent-safe": "Agent-safe",
+        cursor: "Cursor",
+        "claude-code": "Claude Code",
+      };
+      function chips(ids) {
+        return ids.map((value) => ({ value, label: LABELS[value] ?? value }));
+      }
+      const FONTS = chips(CHOICES.font);
+      const LINTERS = chips(CHOICES.lint);
+      const GITS = chips(CHOICES.branching);
+      const AGENTS = chips(CHOICES.agents);
+      const MANAGERS = chips(CHOICES.packageManager);
 
       const state = {
-        preset: "startup-speed",
-        palette: "ink",
-        radius: 8,
-        font: "Inter",
-        linter: "biome",
-        git: "agent-safe",
-        agents: ["cursor", "claude-code"],
+        preset: CHOICES.preset[0],
+        palette: CHOICES.palette[0],
+        radius: PRESETS[CHOICES.preset[0]].radius,
+        font: PRESETS[CHOICES.preset[0]].font,
+        linter: PRESETS[CHOICES.preset[0]].linter,
+        git: PRESETS[CHOICES.preset[0]].git,
+        agents: PRESETS[CHOICES.preset[0]].agents.slice(),
         credit: true,
+        packageManager: "npm",
+        initGit: true,
+        immediate: false,
         name: "my-app",
       };
 
@@ -647,6 +678,9 @@
           parts.push("--agents", state.agents.join(","));
         }
         if (!state.credit) parts.push("--no-credit");
+        if (state.packageManager !== "npm") parts.push(`--use-${state.packageManager}`);
+        if (!state.initGit) parts.push("--disable-git");
+        if (state.immediate) parts.push("--immediate");
         return parts.join(" ");
       }
 
@@ -663,6 +697,9 @@
           state.git,
           state.agents.join(","),
           state.credit ? "credit" : "no-credit",
+          state.packageManager,
+          state.initGit ? "git" : "no-git",
+          state.immediate ? "immediate" : "later",
         ].join("|");
         if (key === listedKey) return;
         listedKey = key;
@@ -675,6 +712,9 @@
           branching: state.git,
           agents: state.agents.join(","),
           credit: state.credit ? "true" : "false",
+          packageManager: state.packageManager,
+          initGit: state.initGit ? "true" : "false",
+          immediate: state.immediate ? "true" : "false",
         });
         fetch(`/api/count?${params}`)
           .then((response) => (response.ok ? response.json() : null))
@@ -685,6 +725,7 @@
               return;
             }
             document.querySelector("#file-count").textContent = `${body.count} files`;
+            document.querySelector("#code").textContent = typeof body.code === "string" ? body.code : "";
           })
           .catch(() => {
             if (listedKey === key) listedKey = "";
@@ -741,7 +782,10 @@
         pressChips(document.querySelector("#linters"), "linter", (value) => value === state.linter);
         pressChips(document.querySelector("#gits"), "git", (value) => value === state.git);
         pressChips(document.querySelector("#agents"), "agent", (value) => state.agents.includes(value));
+        pressChips(document.querySelector("#managers"), "manager", (value) => value === state.packageManager);
         document.querySelector("#credit").setAttribute("aria-pressed", state.credit ? "true" : "false");
+        document.querySelector("#git-init").setAttribute("aria-pressed", state.initGit ? "true" : "false");
+        document.querySelector("#immediate").setAttribute("aria-pressed", state.immediate ? "true" : "false");
 
         const stage = document.querySelector("#stage");
         const radius = `${state.radius}px`;
@@ -840,6 +884,7 @@
         mountChips(document.querySelector("#linters"), LINTERS, "linter");
         mountChips(document.querySelector("#gits"), GITS, "git");
         mountChips(document.querySelector("#agents"), AGENTS, "agent");
+        mountChips(document.querySelector("#managers"), MANAGERS, "manager");
       }
 
       document.querySelector("#settings").addEventListener("click", (event) => {
@@ -871,6 +916,18 @@
         }
         if (button.id === "credit") {
           edit({ credit: !state.credit });
+          return;
+        }
+        if (button.dataset.manager) {
+          edit({ packageManager: button.dataset.manager });
+          return;
+        }
+        if (button.id === "git-init") {
+          edit({ initGit: !state.initGit });
+          return;
+        }
+        if (button.id === "immediate") {
+          edit({ immediate: !state.immediate });
           return;
         }
         if (button.dataset.agent) {

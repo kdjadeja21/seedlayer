@@ -53,6 +53,9 @@ const config = {
   workflow: ["review", "plan"],
   quality: ["commitlint", "husky"],
   credit: true,
+  packageManager: "npm",
+  initGit: true,
+  immediate: false,
 } satisfies SeedlayerConfig;
 
 test("parseConfig canonicalizes array order and rejects commitlint without husky", () => {
@@ -161,6 +164,24 @@ test("configs and sl1 codes without credit default to true", () => {
   assert.deepEqual(decoded, parsed);
 });
 
+test("old configs without package manager, git init, or immediate stay valid", () => {
+  const parsed = parseConfig(config);
+  const { packageManager, initGit, immediate, ...legacy } = parsed;
+  assert.equal(packageManager, "npm");
+  assert.equal(initGit, true);
+  assert.equal(immediate, false);
+  assert.equal("packageManager" in legacy, false);
+  assert.equal("initGit" in legacy, false);
+  assert.equal("immediate" in legacy, false);
+  const decoded = decodeConfig(
+    `sl1.${deflateSync(Buffer.from(canonicalJson(legacy), "utf8")).toString("base64url")}`,
+  );
+  assert.equal(decoded.packageManager, "npm");
+  assert.equal(decoded.initGit, true);
+  assert.equal(decoded.immediate, false);
+  assert.deepEqual(decoded, parsed);
+});
+
 test("a legacy config with branchPrefix and no credit still parses", () => {
   const parsed = parseConfig(config);
   const { credit, ...withoutCredit } = parsed;
@@ -198,6 +219,7 @@ test("bad configs name the field and how to fix it", () => {
     configError({ ...config, agents: ["cursor", "cursor"] }),
     "agents: Agents must be unique",
   );
+  assert.match(configError({ ...config, packageManager: "nope" }), /packageManager/);
   assert.equal(
     configError({ ...config, quality: ["commitlint"] }),
     "quality: commitlint needs the husky gate so the commit-msg hook is installed",

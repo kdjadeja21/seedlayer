@@ -14,6 +14,7 @@ export type { ResolvedPack } from "./resolve.js";
 export { resolvePacks, resolveSelection, selectPackNames } from "./resolve.js";
 export type {
   AgentTarget,
+  PackageManager,
   QualityGate,
   SeedlayerConfig,
   WorkflowCommand,
@@ -22,9 +23,11 @@ export {
   AGENT_IDS,
   AGENTS_MD_MAX_LINES,
   BRANCHING_IDS,
+  CHOICES,
   FONT_IDS,
   formatConfigError,
   LINTER_IDS,
+  PACKAGE_MANAGER_IDS,
   PALETTE_IDS,
   PRESET_IDS,
   parseConfig,

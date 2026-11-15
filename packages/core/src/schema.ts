@@ -12,6 +12,18 @@ export const FONT_IDS = ["Inter", "Geist", "system"] as const;
 export const LINTER_IDS = ["biome", "eslint"] as const;
 export const BRANCHING_IDS = ["trunk", "github-flow", "agent-safe"] as const;
 export const AGENT_IDS = ["cursor", "claude-code"] as const;
+export const PACKAGE_MANAGER_IDS = ["npm", "pnpm", "yarn", "bun"] as const;
+
+export const CHOICES = {
+  preset: PRESET_IDS.filter((id) => id !== "custom"),
+  palette: PALETTE_IDS,
+  font: FONT_IDS,
+  radius: RADIUS_IDS,
+  lint: LINTER_IDS,
+  branching: BRANCHING_IDS,
+  agents: AGENT_IDS,
+  packageManager: PACKAGE_MANAGER_IDS,
+} as const;
 
 export const presetIdSchema = z.enum(PRESET_IDS);
 
@@ -40,6 +52,9 @@ export const seedlayerConfigSchema = z
     schemaVersion: z.literal(SCHEMA_VERSION),
     preset: presetIdSchema,
     credit: z.boolean().default(true),
+    packageManager: z.enum(PACKAGE_MANAGER_IDS).default("npm"),
+    initGit: z.boolean().default(true),
+    immediate: z.boolean().default(false),
     stack: z.strictObject({
       framework: z.enum(["nextjs"]),
       language: z.enum(["typescript"]),
@@ -105,6 +120,7 @@ export const seedlayerConfigSchema = z
   });
 
 export type SeedlayerConfig = z.infer<typeof seedlayerConfigSchema>;
+export type PackageManager = (typeof PACKAGE_MANAGER_IDS)[number];
 export type AgentTarget = z.infer<typeof agentTargetSchema>;
 export type WorkflowCommand = z.infer<typeof workflowCommandSchema>;
 export type QualityGate = z.infer<typeof qualityGateSchema>;

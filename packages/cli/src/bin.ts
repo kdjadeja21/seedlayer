@@ -2,28 +2,24 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { createInterface, type Interface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import {
   AGENT_IDS,
-  BRANCHING_IDS,
+  CHOICES,
   decodeConfig,
-  encodeConfig,
-  FONT_IDS,
   formatConfigError,
-  LINTER_IDS,
-  PALETTE_IDS,
-  PRESET_IDS,
+  type PackageManager,
   parseConfig,
   projectNameSchema,
-  RADIUS_IDS,
   renderProject,
   type SeedlayerConfig,
   SeedlayerError,
   withConfigFlags,
 } from "@seedlayer/core";
 import { loadCatalog, loadPreset } from "@seedlayer/packs";
+import { loadPreferences, resetPreferences } from "./preferences.js";
+import { promptConfig } from "./prompt.js";
 
 const CONFIG_FLAGS = [
   "preset",
@@ -35,17 +31,34 @@ const CONFIG_FLAGS = [
   "branching",
 ] as const;
 
-const LOADABLE_PRESETS = PRESET_IDS.filter((id) => id !== "custom");
-const CHOICES = {
-  preset: LOADABLE_PRESETS,
-  palette: PALETTE_IDS,
-  font: FONT_IDS,
-  radius: RADIUS_IDS,
-  lint: LINTER_IDS,
-  branching: BRANCHING_IDS,
-} as const;
-const CREDIT_CHOICES = ["yes", "no"] as const;
 const AGENT_CHOICES = `${AGENT_IDS.join(", ")}. claude is a short name for claude-code`;
+
+type Flags = {
+  config?: string;
+  preset?: string;
+  palette?: string;
+  font?: string;
+  radius?: string;
+  agents?: string;
+  lint?: string;
+  branching?: string;
+  "no-credit": boolean;
+  "skip-install": boolean;
+  "skip-verify": boolean;
+  force: boolean;
+  "use-npm": boolean;
+  "use-pnpm": boolean;
+  "use-yarn": boolean;
+  "use-bun": boolean;
+  yes: boolean;
+  "disable-git": boolean;
+  interactive: boolean;
+  "no-interactive": boolean;
+  immediate: boolean;
+  "reset-preferences": boolean;
+  version: boolean;
+  help: boolean;
+};
 
 main().catch((error: unknown) => {
   console.error(formatConfigError(error));
@@ -65,6 +78,16 @@ async function main(): Promise<void> {
       lint: { type: "string" },
       branching: { type: "string" },
       "no-credit": { type: "boolean", default: false },
+      "use-npm": { type: "boolean", default: false },
+      "use-pnpm": { type: "boolean", default: false },
+      "use-yarn": { type: "boolean", default: false },
+      "use-bun": { type: "boolean", default: false },
+      yes: { type: "boolean", default: false },
+      "disable-git": { type: "boolean", default: false },
+      interactive: { type: "boolean", default: false },
+      "no-interactive": { type: "boolean", default: false },
+      immediate: { type: "boolean", short: "i", default: false },
+      "reset-preferences": { type: "boolean", default: false },
       "skip-install": { type: "boolean", default: false },
       "skip-verify": { type: "boolean", default: false },
       force: { type: "boolean", default: false },
@@ -73,19 +96,24 @@ async function main(): Promise<void> {
     },
     allowPositionals: true,
   });
+  const flags: Flags = values;
 
-  if (values.version) {
+  if (flags.version) {
     console.log(cliVersion());
     return;
   }
-
-  if (values.help) {
+  if (flags.help) {
     printHelp();
     return;
+  }
+  if (flags["reset-preferences"]) {
+    resetPreferences();
+    console.log("Cleared saved answers.");
   }
 
   const directory = positionals[0];
   if (!directory || positionals.length !== 1) {
+    if (flags["reset-preferences"] && positionals.length === 0) return;
     printHelp();
     throw new SeedlayerError("Pass one directory.");
   }
@@ -97,10 +125,10 @@ async function main(): Promise<void> {
     throw new SeedlayerError(parsedName.error.issues.map((issue) => issue.message).join("\n"));
   }
 
-  const config = await resolveConfig(values, directory, target, values.force);
+  const config = await resolveConfig(flags, directory, target);
   if (!config) return;
 
-  prepareDirectory(target, values.force);
+  prepareDirectory(target, flags.force);
   const files = renderProject({
     config,
     projectName: parsedName.data,
@@ -113,47 +141,148 @@ async function main(): Promise<void> {
   }
   console.log(`Wrote ${files.length} files to ${target}`);
 
-  ensureGit(target);
-  if (values["skip-install"]) return;
-  run("npm", ["install"], target);
-  if (values["skip-verify"]) return;
-  run("npm", ["run", "lint"], target);
-  run("npm", ["run", "typecheck"], target);
+  const manager = packageManagerOf(config.packageManager);
+  ensureGit(target, config.initGit);
+  if (flags["skip-install"]) {
+    if (config.immediate) {
+      console.error("Skipping the dev server because --skip-install was passed.");
+    }
+    printNextSteps(directory, manager, false);
+    return;
+  }
+  run(manager, ["install"], target);
+  if (!flags["skip-verify"]) {
+    run(manager, ["run", "lint"], target);
+    run(manager, ["run", "typecheck"], target);
+  }
+  if (config.immediate) {
+    run(manager, ["run", "dev"], target);
+    return;
+  }
+  printNextSteps(directory, manager, true);
 }
 
 async function resolveConfig(
-  values: Partial<Record<(typeof CONFIG_FLAGS)[number] | "config", string>> & {
-    "no-credit"?: boolean;
-  },
+  flags: Flags,
   directory: string,
   target: string,
-  force: boolean,
 ): Promise<SeedlayerConfig | undefined> {
-  const passed = CONFIG_FLAGS.filter((flag) => values[flag] !== undefined);
-  const noCredit = values["no-credit"] === true;
-  if (values.config !== undefined && (passed.length > 0 || noCredit)) {
-    const names = [...passed.map((flag) => `--${flag}`), ...(noCredit ? ["--no-credit"] : [])];
-    throw new SeedlayerError(`Don't pass --config with ${names.join(", ")}.`);
+  const conflicts = conflictingFlags(flags);
+  if (flags.config !== undefined && conflicts.length > 0) {
+    throw new SeedlayerError(`Don't pass --config with ${conflicts.join(", ")}.`);
   }
-  if (values.config !== undefined) return readConfig(values.config);
-  if (passed.length === 0 && !noCredit) {
-    if (process.stdin.isTTY && process.stdout.isTTY) {
-      assertDirectory(target, force);
-      return promptConfig(directory);
+  if (flags.interactive && flags["no-interactive"]) {
+    throw new SeedlayerError("Don't pass --interactive with --no-interactive.");
+  }
+  if (flags.yes && flags.interactive) {
+    throw new SeedlayerError("Don't pass --yes with --interactive.");
+  }
+  if (flags.config !== undefined) {
+    if (flags.interactive) throw new SeedlayerError("Don't pass --interactive with --config.");
+    return readConfig(flags.config);
+  }
+  if (shouldPrompt(flags)) {
+    if (!process.stdin.isTTY || !process.stdout.isTTY) {
+      throw new SeedlayerError("Interactive mode needs a terminal.");
     }
-    return loadPreset("startup-speed");
+    assertDirectory(target, flags.force);
+    return promptConfig(directory, promptFlags(flags), loadPreferences(), detectPackageManager());
   }
+  return configFromFlags(flags);
+}
 
-  const preset = oneOf("preset", values.preset, CHOICES.preset) ?? "startup-speed";
+function shouldPrompt(flags: Flags): boolean {
+  if (flags.yes || flags["no-interactive"]) return false;
+  if (flags.interactive) return true;
+  const passed =
+    CONFIG_FLAGS.some((flag) => flags[flag] !== undefined) ||
+    flags["no-credit"] ||
+    flags["disable-git"] ||
+    flags.immediate ||
+    selectedPackageManager(flags) !== undefined;
+  if (passed) return false;
+  return Boolean(process.stdin.isTTY && process.stdout.isTTY);
+}
+
+function conflictingFlags(flags: Flags): string[] {
+  const names = CONFIG_FLAGS.filter((flag) => flags[flag] !== undefined).map((flag) => `--${flag}`);
+  if (flags["no-credit"]) names.push("--no-credit");
+  for (const manager of CHOICES.packageManager) {
+    if (packageManagerFlag(manager, flags)) names.push(`--use-${manager}`);
+  }
+  if (flags["disable-git"]) names.push("--disable-git");
+  if (flags.immediate) names.push("--immediate");
+  return names;
+}
+
+function promptFlags(flags: Flags) {
+  return {
+    preset: flags.preset,
+    palette: flags.palette,
+    font: flags.font,
+    radius: flags.radius,
+    lint: flags.lint,
+    branching: flags.branching,
+    agents: flags.agents === undefined ? undefined : parseAgents(flags.agents),
+    credit: flags["no-credit"] ? false : undefined,
+    packageManager: selectedPackageManager(flags),
+    initGit: flags["disable-git"] ? false : undefined,
+    immediate: flags.immediate ? true : undefined,
+  };
+}
+
+function configFromFlags(flags: Flags): SeedlayerConfig {
+  const preset = oneOf("preset", flags.preset, CHOICES.preset) ?? "startup-speed";
   return withConfigFlags(loadPreset(preset), {
-    palette: oneOf("palette", values.palette, CHOICES.palette),
-    font: oneOf("font", values.font, CHOICES.font),
-    radius: oneOf("radius", values.radius, CHOICES.radius),
-    lint: oneOf("lint", values.lint, CHOICES.lint),
-    branching: oneOf("branching", values.branching, CHOICES.branching),
-    agents: values.agents === undefined ? undefined : parseAgents(values.agents),
-    credit: noCredit ? false : undefined,
+    palette: oneOf("palette", flags.palette, CHOICES.palette),
+    font: oneOf("font", flags.font, CHOICES.font),
+    radius: oneOf("radius", flags.radius, CHOICES.radius),
+    lint: oneOf("lint", flags.lint, CHOICES.lint),
+    branching: oneOf("branching", flags.branching, CHOICES.branching),
+    agents: flags.agents === undefined ? undefined : parseAgents(flags.agents),
+    credit: flags["no-credit"] ? false : undefined,
+    packageManager: selectedPackageManager(flags) ?? detectPackageManager(),
+    initGit: !flags["disable-git"],
+    immediate: flags.immediate,
   });
+}
+
+function selectedPackageManager(flags: Flags): PackageManager | undefined {
+  const selected = CHOICES.packageManager.filter((manager) => packageManagerFlag(manager, flags));
+  if (selected.length > 1) {
+    throw new SeedlayerError(
+      `Pass only one of ${CHOICES.packageManager.map((manager) => `--use-${manager}`).join(", ")}.`,
+    );
+  }
+  return selected[0];
+}
+
+function packageManagerFlag(manager: PackageManager, flags: Flags): boolean {
+  switch (manager) {
+    case "npm":
+      return flags["use-npm"];
+    case "pnpm":
+      return flags["use-pnpm"];
+    case "yarn":
+      return flags["use-yarn"];
+    case "bun":
+      return flags["use-bun"];
+    default: {
+      const unreachable: never = manager;
+      return unreachable;
+    }
+  }
+}
+
+function detectPackageManager(): PackageManager {
+  const name = (process.env.npm_config_user_agent ?? "").split("/")[0];
+  return CHOICES.packageManager.find((manager) => manager === name) ?? "npm";
+}
+
+function packageManagerOf(value: string): PackageManager {
+  const match = CHOICES.packageManager.find((manager) => manager === value);
+  if (!match) throw new SeedlayerError(`Unknown package manager "${value}".`);
+  return match;
 }
 
 function oneOf<T extends string>(
@@ -211,87 +340,6 @@ function hasVersion(value: unknown): value is { version: string } {
   );
 }
 
-async function promptConfig(directory: string): Promise<SeedlayerConfig | undefined> {
-  const rl = createInterface({ input: process.stdin, output: process.stdout });
-  try {
-    const preset = await ask(rl, "preset", CHOICES.preset, "startup-speed");
-    const base = loadPreset(preset);
-    const palette = await ask(rl, "palette", CHOICES.palette, base.design.palette);
-    const agents = await askAgents(rl, base.agents.join(","));
-    const font = await ask(rl, "font", CHOICES.font, base.design.fontSans);
-    const radius = await ask(rl, "radius", CHOICES.radius, base.design.radius);
-    const lint = await ask(rl, "lint", CHOICES.lint, base.codeStyle.linter);
-    const branching = await ask(rl, "branching", CHOICES.branching, base.git.workflow);
-    const credit = await ask(rl, "credit", CREDIT_CHOICES, base.credit ? "yes" : "no");
-    const config = withConfigFlags(base, {
-      palette,
-      font,
-      radius,
-      lint,
-      branching,
-      agents,
-      credit: credit === "yes",
-    });
-    const code = encodeConfig(config);
-    console.log(
-      [
-        `preset: ${config.preset}`,
-        `palette: ${config.design.palette}`,
-        `agents: ${config.agents.join(",")}`,
-        `font: ${config.design.fontSans}`,
-        `radius: ${config.design.radius}`,
-        `lint: ${config.codeStyle.linter}`,
-        `branching: ${config.git.workflow}`,
-        `credit: ${config.credit ? "yes" : "no"}`,
-        code,
-        `npx seedlayer ${directory} --config ${code}`,
-      ].join("\n"),
-    );
-    if (!(await confirmCreate(rl))) return undefined;
-    return config;
-  } finally {
-    rl.close();
-  }
-}
-
-async function confirmCreate(rl: Interface): Promise<boolean> {
-  for (;;) {
-    const answer = (await rl.question("Create it? [Y/n] ")).trim();
-    if (answer === "" || answer === "Y" || answer === "y") return true;
-    if (answer === "n" || answer === "N") return false;
-    reportChoice(answer, "an answer", "Y, n");
-  }
-}
-
-async function ask<T extends string>(
-  rl: Interface,
-  flag: string,
-  allowed: readonly T[],
-  fallback: T,
-): Promise<T> {
-  const choices = allowed.join(", ");
-  for (;;) {
-    const answer = (await rl.question(`${flag} (${choices}) [${fallback}]: `)).trim();
-    if (answer === "") return fallback;
-    const match = allowed.find((item) => item === answer);
-    if (match) return match;
-    reportChoice(answer, `a ${flag}`, choices);
-  }
-}
-
-async function askAgents(rl: Interface, fallback: string): Promise<string[]> {
-  for (;;) {
-    const answer = (await rl.question(`agents (${AGENT_CHOICES}) [${fallback}]: `)).trim();
-    const agents = listedAgents(answer === "" ? fallback : answer);
-    if (agents) return agents;
-    reportChoice(answer, "an agent", AGENT_CHOICES);
-  }
-}
-
-function reportChoice(answer: string, kind: string, choices: string): void {
-  process.stdout.write(`"${answer}" is not ${kind}. Pick one of: ${choices}\r\n`);
-}
-
 function readConfig(value: string): SeedlayerConfig {
   if (value.startsWith("sl1.")) return decodeConfig(value);
   if (existsSync(value)) return parseConfig(JSON.parse(readFileSync(value, "utf8")) as unknown);
@@ -317,18 +365,62 @@ function prepareDirectory(target: string, force: boolean): void {
   mkdirSync(target, { recursive: true });
 }
 
-function ensureGit(target: string): void {
+function ensureGit(target: string, initGit: boolean): void {
+  if (!initGit) return;
   const inside = spawnSync("git", ["rev-parse", "--is-inside-work-tree"], {
     cwd: target,
     stdio: "ignore",
   });
+  if (missingGit(inside)) {
+    console.error("Git is not available. Continuing without a repository.");
+    return;
+  }
   if (inside.status === 0) return;
   const created = spawnSync("git", ["init", "-b", "main"], { cwd: target, stdio: "inherit" });
-  if (created.status !== 0) process.exit(created.status ?? 1);
+  if (missingGit(created)) {
+    console.error("Git is not available. Continuing without a repository.");
+    return;
+  }
+  if (created.status !== 0) {
+    console.error("Git init failed. Continuing without a repository.");
+    return;
+  }
+  const added = spawnSync("git", ["add", "-A"], { cwd: target, stdio: "inherit" });
+  if (added.status !== 0) {
+    console.error("Git commit failed. Continuing without a commit.");
+    return;
+  }
+  const committed = spawnSync("git", ["commit", "-m", "Initial commit from seedlayer"], {
+    cwd: target,
+    stdio: "inherit",
+  });
+  if (committed.status !== 0) {
+    console.error("Git commit failed. Continuing without a commit.");
+  }
+}
+
+function missingGit(result: { error?: Error }): boolean {
+  return result.error !== undefined && "code" in result.error && result.error.code === "ENOENT";
+}
+
+function printNextSteps(directory: string, manager: PackageManager, installed: boolean): void {
+  const lines = ["", "Next steps:", `  cd ${shellArg(directory)}`];
+  if (!installed) lines.push(`  ${manager} install`);
+  lines.push(`  ${manager} run dev`);
+  console.log(lines.join("\n"));
+}
+
+function shellArg(value: string): string {
+  return /^[A-Za-z0-9._@/:+-]+$/.test(value) ? value : `'${value.replaceAll("'", `'"'"'`)}'`;
 }
 
 function run(command: string, args: string[], cwd: string): void {
   const result = spawnSync(command, args, { cwd, stdio: "inherit" });
+  if (result.error && "code" in result.error && result.error.code === "ENOENT") {
+    throw new SeedlayerError(
+      `Could not run ${command}. Install it or pass a different --use-* flag.`,
+    );
+  }
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
@@ -336,8 +428,10 @@ function printHelp(): void {
   console.log(`seedlayer <directory> [options]
 
 Start from a preset and apply any flags you pass. With no config flags, an
-interactive terminal asks for the preset, palette, agents, font, radius, lint,
-branching, and credit, then confirms before writing.
+interactive terminal picks the preset, palette, agents, font, radius, lint,
+branching, credit, package manager, git, and whether to start the dev server,
+then confirms before writing. Arrow keys move, Enter selects, and Space toggles
+agents. --yes skips the questions and the confirmation.
 
 Options:
   --config <code-or-file>  sl1 code or a JSON config file
@@ -349,6 +443,16 @@ Options:
   --lint <name>            ${CHOICES.lint.join(", ")}
   --branching <name>       ${CHOICES.branching.join(", ")}
   --no-credit              Omit the Seedlayer credit on the home page
+  --use-npm                Install and run scripts with npm
+  --use-pnpm               Install and run scripts with pnpm
+  --use-yarn               Install and run scripts with yarn
+  --use-bun                Install and run scripts with bun
+  --disable-git            Skip git init and the first commit
+  --yes                    Skip questions and use the preset defaults plus flags
+  --interactive            Ask the questions even when flags are passed
+  --no-interactive         Skip the questions
+  -i, --immediate          Install, then start the dev server
+  --reset-preferences      Forget the saved answers
   --skip-install           Write files only
   --skip-verify            Install dependencies and skip lint and typecheck
   --force                  Replace a non-empty directory
