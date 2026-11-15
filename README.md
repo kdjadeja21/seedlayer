@@ -13,20 +13,26 @@ The same config always produces the same files. The web UI and the CLI share `@s
 
 `--preset` defaults to `startup-speed`. The other flags override that preset. Pass only the ones you want to change.
 
-| Flag              | Values                                                                               |
-| ----------------- | ------------------------------------------------------------------------------------ |
-| `--preset`        | `startup-speed`, `team-strict`, `hackathon-2h`                                       |
-| `--palette`       | `ink`, `harbor`, `ember`, `iris`, `grove`, `dusk`                                    |
-| `--font`          | `Inter`, `Geist`, `system`                                                           |
-| `--radius`        | `none`, `sm`, `md`, `lg`                                                             |
-| `--agents`        | comma-separated `cursor`, `claude-code` (`claude` is a short name for `claude-code`) |
-| `--lint`          | `biome`, `eslint`                                                                    |
-| `--branching`     | `trunk`, `github-flow`, `agent-safe`                                                 |
-| `--no-credit`     | omit the home page Seedlayer credit                                                  |
-| `--version`, `-v` | print the CLI version                                                                |
-| `--config`        | an `sl1.` code or a JSON file                                                        |
+| Flag                                                 | Values                                                                               |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| `--preset`                                           | `startup-speed`, `team-strict`, `hackathon-2h`                                       |
+| `--palette`                                          | `ink`, `harbor`, `ember`, `iris`, `grove`, `dusk`                                    |
+| `--font`                                             | `Inter`, `Geist`, `system`                                                           |
+| `--radius`                                           | `none`, `sm`, `md`, `lg`                                                             |
+| `--agents`                                           | comma-separated `cursor`, `claude-code` (`claude` is a short name for `claude-code`) |
+| `--lint`                                             | `biome`, `eslint`                                                                    |
+| `--branching`                                        | `trunk`, `github-flow`, `agent-safe`                                                 |
+| `--no-credit`                                        | omit the home page Seedlayer credit                                                  |
+| `--use-npm`, `--use-pnpm`, `--use-yarn`, `--use-bun` | package manager for install, verify, and next steps                                  |
+| `--disable-git`                                      | skip `git init` and the first commit                                                 |
+| `--yes`                                              | skip the questions and use the preset defaults plus any flags                        |
+| `--interactive`, `--no-interactive`                  | force the questions on or off                                                        |
+| `-i`, `--immediate`                                  | install, then start the dev server                                                   |
+| `--reset-preferences`                                | forget the answers saved in `~/.seedlayer.json`                                      |
+| `--version`, `-v`                                    | print the CLI version                                                                |
+| `--config`                                           | an `sl1.` code or a JSON file                                                        |
 
-`--config` cannot be combined with the flags above. With no config flags, an interactive terminal asks for the preset, palette, and agents. A non-interactive shell uses `startup-speed`.
+`--config` cannot be combined with the config flags above. With no config flags, an interactive terminal picks the preset, palette, agents, font, radius, lint, branching, credit, package manager, git, and whether to start the dev server, then confirms before writing. Arrow keys move, Enter selects, and Space toggles agents. `--yes` skips the questions. A non-interactive shell uses `startup-speed`. The package manager defaults to the one that launched the CLI. Git is initialized and the first commit is `Initial commit from seedlayer` unless `--disable-git` is set. The last interactive answers are saved in `~/.seedlayer.json` and offered next time.
 
 This branch is a cursor-lab experiment. `main` stays the starter. The name, license, and scope notes are in [docs/decisions.md](docs/decisions.md). Branch, commit, and release rules are in [docs/BRANCHING.md](docs/BRANCHING.md).
 

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -12,6 +13,18 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import {
+  CHOICES,
+  decodeConfig,
+  encodeConfig,
+  renderProject,
+  withConfigFlags,
+} from "@seedlayer/core";
+import { loadCatalog, loadPreset } from "@seedlayer/packs";
+
+const ENTER = "\r";
+const DOWN = "\u001b[B";
+const UP = "\u001b[A";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const bin = path.join(here, "../src/bin.ts");
@@ -254,42 +267,61 @@ test("--version and -v print the package.json version and exit 0", () => {
   assert.equal(help.status, 0, help.stderr);
   assert.match(help.stdout, /--version, -v/);
   assert.match(help.stdout, /claude is a short name for claude-code/);
+  assert.match(help.stdout, /Arrow keys move, Enter selects, and Space toggles\nagents/);
+  assert.match(help.stdout, /--use-npm/);
+  assert.match(help.stdout, /--use-pnpm/);
+  assert.match(help.stdout, /--use-yarn/);
+  assert.match(help.stdout, /--use-bun/);
+  assert.match(help.stdout, /--disable-git/);
+  assert.match(help.stdout, /--yes/);
+  assert.match(help.stdout, /--interactive/);
+  assert.match(help.stdout, /--no-interactive/);
+  assert.match(help.stdout, /-i, --immediate/);
+  assert.match(help.stdout, /--reset-preferences/);
 });
 
-test("a wrong answer, then a right one, creates the app with the right one", () => {
+test("arrow keys pick the preset, palette, and agents", () => {
   const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
   const target = path.join(root, "my-app");
-  const result = runPrompt(
-    target,
-    ["nope", "team-strict", "purple", "ember", "bogus", "claude"].join("\n"),
-  );
+  const result = runPrompt(target, [
+    `${DOWN}${ENTER}`,
+    `${DOWN}${ENTER}`,
+    ` ${ENTER}`,
+    ENTER,
+    ENTER,
+    ENTER,
+    ENTER,
+    ENTER,
+    ENTER,
+    ENTER,
+    ENTER,
+    ENTER,
+  ]);
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
-  assert.match(
-    result.stdout,
-    /"nope" is not a preset\. Pick one of: startup-speed, team-strict, hackathon-2h/,
-  );
-  assert.match(
-    result.stdout,
-    /"purple" is not a palette\. Pick one of: ink, harbor, ember, iris, grove, dusk/,
-  );
-  assert.match(
-    result.stdout,
-    /"bogus" is not an agent\. Pick one of: cursor, claude-code\. claude is a short name for claude-code/,
-  );
   const config = JSON.parse(readFileSync(path.join(target, ".seedlayer/config.json"), "utf8"));
   assert.equal(config.preset, "team-strict");
   assert.equal(config.design.palette, "ember");
   assert.deepEqual(config.agents, ["claude-code"]);
 
   const defaults = path.join(root, "defaults");
-  const empty = runPrompt(defaults, "\n\n\n");
+  const empty = runPrompt(
+    defaults,
+    Array.from({ length: 12 }, () => ENTER),
+  );
   assert.equal(empty.status, 0, `${empty.stdout}\n${empty.stderr}`);
-  assert.doesNotMatch(empty.stdout, /is not a /);
   const defaultConfig = JSON.parse(
     readFileSync(path.join(defaults, ".seedlayer/config.json"), "utf8"),
   );
   assert.equal(defaultConfig.preset, "startup-speed");
   assert.equal(defaultConfig.design.palette, "ink");
+  assert.equal(defaultConfig.design.fontSans, "Inter");
+  assert.equal(defaultConfig.design.radius, "md");
+  assert.equal(defaultConfig.codeStyle.linter, "biome");
+  assert.equal(defaultConfig.git.workflow, "agent-safe");
+  assert.equal(defaultConfig.credit, true);
+  assert.equal(defaultConfig.packageManager, "npm");
+  assert.equal(defaultConfig.initGit, true);
+  assert.equal(defaultConfig.immediate, false);
   assert.deepEqual(defaultConfig.agents, ["cursor", "claude-code"]);
 });
 
@@ -298,22 +330,479 @@ test("a non-empty folder fails before any question is shown", () => {
   const target = path.join(root, "my-app");
   mkdirSync(target);
   writeFileSync(path.join(target, "keep.txt"), "keep");
-  const result = runPrompt(target, ["team-strict", "ember", "claude"].join("\n"));
+  const result = runPrompt(target, []);
   assert.equal(result.status, 1, result.stdout);
   assert.match(result.stdout, /is not empty\. Pass --force to replace it\./);
-  assert.doesNotMatch(result.stdout, /preset \(/);
+  assert.doesNotMatch(result.stdout, /Preset/);
   assert.equal(readFileSync(path.join(target, "keep.txt"), "utf8"), "keep");
   assert.equal(existsSync(path.join(target, "package.json")), false);
+});
+
+test("question mode matches the same font, radius, lint, branching, and credit flags", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  const prompted = path.join(root, "prompted", "my-app");
+  const flagged = path.join(root, "flagged", "my-app");
+  const promptedResult = runPrompt(prompted, [
+    ENTER,
+    ENTER,
+    ENTER,
+    `${DOWN}${ENTER}`,
+    `${UP}${ENTER}`,
+    `${DOWN}${ENTER}`,
+    `${UP}${UP}${ENTER}`,
+    "no\r",
+    ENTER,
+    ENTER,
+    ENTER,
+    ENTER,
+  ]);
+  assert.equal(promptedResult.status, 0, promptedResult.stdout);
+  const flaggedResult = run(
+    flagged,
+    [
+      "--preset",
+      "startup-speed",
+      "--font",
+      "Geist",
+      "--radius",
+      "sm",
+      "--lint",
+      "eslint",
+      "--branching",
+      "trunk",
+      "--no-credit",
+      "--skip-install",
+    ],
+    {
+      npm_config_user_agent: "npm/10.0.0 npm/? node/v22.0.0",
+    },
+  );
+  assert.equal(flaggedResult.status, 0, flaggedResult.stderr);
+  assertSameFiles(prompted, flagged);
+});
+
+test("a bad project name fails before any question", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  const target = path.join(root, "My App");
+  const result = runPrompt(target, []);
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(result.stdout, /Use a lowercase project name such as my-app/);
+  assert.doesNotMatch(result.stdout, /Preset/);
+  assert.equal(existsSync(target), false);
+});
+
+test("the summary shows a working sl1 code and n writes nothing", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  const target = path.join(root, "my-app");
+  const result = runPrompt(target, [
+    ENTER,
+    `${DOWN}${ENTER}`,
+    ENTER,
+    `${DOWN}${ENTER}`,
+    `${UP}${ENTER}`,
+    `${DOWN}${ENTER}`,
+    `${UP}${UP}${ENTER}`,
+    "no\r",
+    ENTER,
+    ENTER,
+    ENTER,
+    "n\r",
+  ]);
+  assert.equal(result.status, 0, result.stdout);
+  assert.equal(existsSync(target), false);
+  const esc = String.fromCharCode(27);
+  const plain = result.stdout.replaceAll(new RegExp(`${esc}\\[[0-9;]*[A-Za-z]`, "g"), "");
+  const code = plain.match(/sl1\.[A-Za-z0-9_-]+/)?.[0];
+  assert.ok(code);
+  const command = `npx seedlayer ${target} --config ${code}`;
+  assert.ok(plain.includes(command), plain);
+  assert.match(plain, /font: Geist/);
+  assert.match(plain, /radius: sm/);
+  assert.match(plain, /lint: eslint/);
+  assert.match(plain, /branching: trunk/);
+  assert.match(plain, /credit: no/);
+  assert.match(plain, /palette: harbor/);
+  const fromCode = path.join(root, "from-code", "my-app");
+  const generated = run(fromCode, ["--config", code, "--skip-install"]);
+  assert.equal(generated.status, 0, generated.stderr);
+  const fromFlags = path.join(root, "from-flags", "my-app");
+  const flagged = run(
+    fromFlags,
+    [
+      "--preset",
+      "startup-speed",
+      "--palette",
+      "harbor",
+      "--font",
+      "Geist",
+      "--radius",
+      "sm",
+      "--lint",
+      "eslint",
+      "--branching",
+      "trunk",
+      "--no-credit",
+      "--skip-install",
+    ],
+    {
+      npm_config_user_agent: "npm/10.0.0 npm/? node/v22.0.0",
+    },
+  );
+  assert.equal(flagged.status, 0, flagged.stderr);
+  assertSameFiles(fromCode, fromFlags);
 });
 
 test("ctrl-c during a question quits without writing the app", () => {
   const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
   const target = path.join(root, "my-app");
-  const result = runPrompt(target, "\u0003");
+  const result = runPrompt(target, ["\u0003"]);
   assert.equal(result.status, 1, result.stdout);
   assert.match(result.stdout, /Aborted with Ctrl\+C/);
-  assert.doesNotMatch(result.stdout, /palette \(/);
+  assert.doesNotMatch(result.stdout, /Palette/);
   assert.equal(existsSync(path.join(target, "package.json")), false);
+});
+
+test("the credit question accepts y, yes, n, and no in any case", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  const answers = [
+    ["YES", true],
+    ["y", true],
+    ["no", false],
+    ["N", false],
+  ] as const;
+  for (const [answer, credit] of answers) {
+    const target = path.join(root, `credit-${answer}`, "my-app");
+    const result = runPrompt(target, [
+      ...Array.from({ length: 7 }, () => ENTER),
+      `${answer}\r`,
+      ENTER,
+      ENTER,
+      ENTER,
+      ENTER,
+    ]);
+    assert.equal(result.status, 0, `${answer}\n${result.stdout}\n${result.stderr}`);
+    const config = JSON.parse(readFileSync(path.join(target, ".seedlayer/config.json"), "utf8"));
+    assert.equal(config.credit, credit, answer);
+  }
+
+  const rejected = path.join(root, "rejected", "my-app");
+  const again = runPrompt(rejected, [
+    ...Array.from({ length: 7 }, () => ENTER),
+    "maybe\r",
+    "\u0015no\r",
+    ENTER,
+    ENTER,
+    ENTER,
+    ENTER,
+  ]);
+  assert.equal(again.status, 0, `${again.stdout}\n${again.stderr}`);
+  assert.match(plainText(again.stdout), /"maybe" is not an answer/);
+  const config = JSON.parse(readFileSync(path.join(rejected, ".seedlayer/config.json"), "utf8"));
+  assert.equal(config.credit, false);
+});
+
+test("package manager flags, detection, and next steps", () => {
+  for (const manager of ["npm", "pnpm", "yarn", "bun"] as const) {
+    const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+    const target = path.join(root, "my-app");
+    const result = run(target, [`--use-${manager}`, "--skip-install", "--no-interactive"], {
+      npm_config_user_agent: "yarn/1.22.0 npm/? node/v22.0.0",
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const config = JSON.parse(readFileSync(path.join(target, ".seedlayer/config.json"), "utf8"));
+    assert.equal(config.packageManager, manager);
+    assert.match(result.stdout, new RegExp(`\\n  ${manager} install\\n`));
+    assert.match(result.stdout, new RegExp(`\\n  ${manager} run dev\\n`));
+  }
+
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  const detected = run(path.join(root, "detected"), ["--yes", "--skip-install"], {
+    npm_config_user_agent: "pnpm/10.12.1 npm/? node/v22.0.0",
+  });
+  assert.equal(detected.status, 0, detected.stderr);
+  assert.equal(
+    JSON.parse(readFileSync(path.join(root, "detected/.seedlayer/config.json"), "utf8"))
+      .packageManager,
+    "pnpm",
+  );
+  assert.match(detected.stdout, /\n {2}pnpm install\n/);
+  const fallback = run(path.join(root, "fallback"), ["--yes", "--skip-install"], {
+    npm_config_user_agent: "deno/1.0.0",
+  });
+  assert.equal(fallback.status, 0, fallback.stderr);
+  assert.equal(
+    JSON.parse(readFileSync(path.join(root, "fallback/.seedlayer/config.json"), "utf8"))
+      .packageManager,
+    "npm",
+  );
+  const both = run(path.join(root, "both"), ["--use-npm", "--use-bun", "--skip-install"]);
+  assert.equal(both.status, 1);
+  assert.match(both.stderr, /Pass only one of --use-npm, --use-pnpm, --use-yarn, --use-bun/);
+});
+
+test("--yes skips questions and keeps the flags", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  const target = path.join(root, "my-app");
+  const result = runPrompt(target, [], { args: ["--yes", "--palette", "ember", "--no-credit"] });
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  assert.doesNotMatch(result.stdout, /Preset/);
+  const config = JSON.parse(readFileSync(path.join(target, ".seedlayer/config.json"), "utf8"));
+  assert.equal(config.preset, "startup-speed");
+  assert.equal(config.design.palette, "ember");
+  assert.equal(config.credit, false);
+  assert.equal(existsSync(path.join(target, "package.json")), true);
+});
+
+test("--disable-git skips the repository and the default makes the first commit", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  const skipped = path.join(root, "skipped");
+  const skipResult = run(skipped, ["--disable-git", "--yes", "--skip-install"]);
+  assert.equal(skipResult.status, 0, skipResult.stderr);
+  assert.equal(existsSync(path.join(skipped, ".git")), false);
+  assert.equal(
+    JSON.parse(readFileSync(path.join(skipped, ".seedlayer/config.json"), "utf8")).initGit,
+    false,
+  );
+
+  const committed = path.join(root, "committed");
+  const commitResult = run(committed, ["--yes", "--skip-install"], {
+    GIT_AUTHOR_NAME: "Seedlayer Test",
+    GIT_AUTHOR_EMAIL: "test@example.com",
+    GIT_COMMITTER_NAME: "Seedlayer Test",
+    GIT_COMMITTER_EMAIL: "test@example.com",
+  });
+  assert.equal(commitResult.status, 0, commitResult.stderr);
+  assert.doesNotMatch(commitResult.stderr, /Git commit failed/);
+  const log = spawnSync("git", ["log", "-1", "--format=%s"], {
+    cwd: committed,
+    encoding: "utf8",
+  });
+  assert.equal(log.status, 0, log.stderr);
+  assert.equal(log.stdout.trim(), "Initial commit from seedlayer");
+});
+
+test("a missing git or a failed commit warns and still writes the app", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  const missing = path.join(root, "missing");
+  const emptyBin = path.join(root, "empty-bin");
+  mkdirSync(emptyBin);
+  const missingResult = run(missing, ["--yes", "--skip-install"], { PATH: emptyBin });
+  assert.equal(missingResult.status, 0, missingResult.stderr);
+  assert.match(missingResult.stderr, /Git is not available\. Continuing without a repository\./);
+  assert.equal(existsSync(path.join(missing, "package.json")), true);
+  assert.equal(existsSync(path.join(missing, ".git")), false);
+
+  const binDir = path.join(root, "bin");
+  mkdirSync(binDir);
+  const fake = path.join(binDir, "git");
+  writeFileSync(
+    fake,
+    `#!/bin/sh
+if [ "$1" = "rev-parse" ]; then
+  exit 1
+fi
+if [ "$1" = "init" ]; then
+  exec /usr/bin/git "$@"
+fi
+echo "Author identity unknown" >&2
+exit 128
+`,
+  );
+  chmodSync(fake, 0o755);
+  const failed = path.join(root, "failed");
+  const failedResult = run(failed, ["--yes", "--skip-install"], { PATH: binDir });
+  assert.equal(failedResult.status, 0, failedResult.stderr);
+  assert.match(failedResult.stderr, /Git commit failed\. Continuing without a commit\./);
+  assert.equal(existsSync(path.join(failed, "package.json")), true);
+  const log = spawnSync("git", ["log", "-1", "--format=%s"], { cwd: failed, encoding: "utf8" });
+  assert.notEqual(log.stdout.trim(), "Initial commit from seedlayer");
+});
+
+test("--immediate installs and starts the dev server", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  const binDir = path.join(root, "bin");
+  const log = path.join(root, "commands.log");
+  mkdirSync(binDir);
+  const npm = path.join(binDir, "npm");
+  writeFileSync(
+    npm,
+    `#!/bin/sh
+printf '%s\\n' "$*" >> "$SEEDLAYER_LOG"
+exit 0
+`,
+  );
+  chmodSync(npm, 0o755);
+  const target = path.join(root, "my-app");
+  const result = run(target, ["-i", "--skip-verify", "--use-npm"], {
+    PATH: `${binDir}:${process.env.PATH ?? ""}`,
+    SEEDLAYER_LOG: log,
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(readFileSync(log, "utf8"), "install\nrun dev\n");
+  assert.equal(
+    JSON.parse(readFileSync(path.join(target, ".seedlayer/config.json"), "utf8")).immediate,
+    true,
+  );
+
+  const skipped = path.join(root, "skipped");
+  const skipResult = run(skipped, ["--immediate", "--skip-install"]);
+  assert.equal(skipResult.status, 0, skipResult.stderr);
+  assert.match(skipResult.stderr, /Skipping the dev server because --skip-install was passed\./);
+});
+
+test("preferences become the next defaults and --reset-preferences clears them", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  const home = path.join(root, "home");
+  mkdirSync(home);
+  const first = path.join(root, "first", "my-app");
+  const saved = runPrompt(
+    first,
+    [
+      ENTER,
+      ENTER,
+      ENTER,
+      `${DOWN}${ENTER}`,
+      ENTER,
+      ENTER,
+      ENTER,
+      ENTER,
+      `${DOWN}${ENTER}`,
+      ENTER,
+      ENTER,
+      ENTER,
+    ],
+    { home },
+  );
+  assert.equal(saved.status, 0, `${saved.stdout}\n${saved.stderr}`);
+  const prefs = JSON.parse(readFileSync(path.join(home, ".seedlayer.json"), "utf8"));
+  assert.equal(prefs.font, "Geist");
+  assert.equal(prefs.packageManager, "pnpm");
+  assert.equal(prefs.preset, "startup-speed");
+
+  const second = path.join(root, "second", "my-app");
+  const again = runPrompt(
+    second,
+    Array.from({ length: 12 }, () => ENTER),
+    { home },
+  );
+  assert.equal(again.status, 0, `${again.stdout}\n${again.stderr}`);
+  const againConfig = JSON.parse(readFileSync(path.join(second, ".seedlayer/config.json"), "utf8"));
+  assert.equal(againConfig.design.fontSans, "Geist");
+  assert.equal(againConfig.packageManager, "pnpm");
+
+  const yes = path.join(root, "yes", "my-app");
+  const skipped = run(yes, ["--yes", "--skip-install"], {
+    HOME: home,
+    npm_config_user_agent: "npm/10.0.0 npm/? node/v22.0.0",
+  });
+  assert.equal(skipped.status, 0, skipped.stderr);
+  assert.equal(
+    JSON.parse(readFileSync(path.join(yes, ".seedlayer/config.json"), "utf8")).packageManager,
+    "npm",
+  );
+
+  const reset = path.join(root, "reset", "my-app");
+  const cleared = run(reset, ["--reset-preferences", "--yes", "--skip-install"], { HOME: home });
+  assert.equal(cleared.status, 0, cleared.stderr);
+  assert.match(cleared.stdout, /Cleared saved answers/);
+  assert.equal(existsSync(path.join(home, ".seedlayer.json")), false);
+  assert.equal(
+    JSON.parse(readFileSync(path.join(reset, ".seedlayer/config.json"), "utf8")).design.fontSans,
+    "Inter",
+  );
+});
+
+test("interactive flags force questions on or off", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  const quiet = run(path.join(root, "quiet"), ["--no-interactive", "--skip-install"]);
+  assert.equal(quiet.status, 0, quiet.stderr);
+  assert.equal(existsSync(path.join(root, "quiet/package.json")), true);
+
+  const forced = run(path.join(root, "forced"), ["--interactive", "--skip-install"]);
+  assert.equal(forced.status, 1);
+  assert.match(forced.stderr, /Interactive mode needs a terminal/);
+
+  const both = run(path.join(root, "both"), [
+    "--interactive",
+    "--no-interactive",
+    "--skip-install",
+  ]);
+  assert.equal(both.status, 1);
+  assert.match(both.stderr, /Don't pass --interactive with --no-interactive/);
+
+  const yes = run(path.join(root, "yes"), ["--yes", "--interactive", "--skip-install"]);
+  assert.equal(yes.status, 1);
+  assert.match(yes.stderr, /Don't pass --yes with --interactive/);
+
+  const config = run(path.join(root, "config"), [
+    "--config",
+    "sl1.not-a-real-code",
+    "--use-npm",
+    "--disable-git",
+    "--immediate",
+    "--skip-install",
+  ]);
+  assert.equal(config.status, 1);
+  assert.match(config.stderr, /--use-npm/);
+  assert.match(config.stderr, /--disable-git/);
+  assert.match(config.stderr, /--immediate/);
+});
+
+test("the configurator and the CLI write the same files", async () => {
+  const page = loadConfigurator();
+  const bun = page
+    .querySelectorAll("#managers button")
+    .find((button) => button.dataset.manager === "bun");
+  if (!bun) throw new Error("bun choice missing");
+  bun.click();
+  page.querySelector("#git-init").click();
+  page.querySelector("#immediate").click();
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const command = page.querySelector("#command").textContent;
+  assert.equal(
+    command,
+    "npx seedlayer my-app --preset startup-speed --use-bun --disable-git --immediate",
+  );
+  const params = new URL(page.lastCountUrl, "http://localhost").searchParams;
+  const route = readFileSync(
+    path.resolve(here, "../../../apps/web/app/api/count/route.ts"),
+    "utf8",
+  );
+  for (const key of ["packageManager", "initGit", "immediate", "encodeConfig"]) {
+    assert.match(route, new RegExp(key));
+  }
+  assert.equal(params.get("packageManager"), "bun");
+  assert.equal(params.get("initGit"), "false");
+  assert.equal(params.get("immediate"), "true");
+  const code = encodeConfig(configFromCount(params));
+  assert.equal(page.querySelector("#code").textContent, code);
+
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  const target = path.join(root, "my-app");
+  const result = run(target, [
+    "--preset",
+    "startup-speed",
+    "--use-bun",
+    "--disable-git",
+    "--immediate",
+    "--skip-install",
+    "--no-interactive",
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  const written = JSON.parse(readFileSync(path.join(target, ".seedlayer/config.json"), "utf8"));
+  const decoded = decodeConfig(code);
+  assert.deepEqual(decoded, written);
+  const rendered = renderProject({
+    config: decoded,
+    projectName: "my-app",
+    catalog: loadCatalog(),
+  });
+  const files = listFiles(target);
+  assert.deepEqual(files, rendered.map((file) => file.path).sort());
+  for (const file of rendered) {
+    assert.equal(readFileSync(path.join(target, file.path), "utf8"), file.contents, file.path);
+  }
+  assert.equal(existsSync(path.join(target, ".git")), false);
 });
 
 test("--agents claude writes the same files as claude-code", () => {
@@ -405,38 +894,43 @@ function assertPresetGitRules(target: string, claude: boolean): void {
   assert.equal(existsSync(path.join(target, ".claude/skills/implement/SKILL.md")), true);
 }
 
-function run(target: string, args: string[]) {
+function run(target: string, args: string[], env?: NodeJS.ProcessEnv) {
   return spawnSync(process.execPath, ["--import", "tsx", bin, target, ...args], {
     cwd: path.resolve(here, "../../.."),
     encoding: "utf8",
+    env: env ? { ...process.env, ...env } : undefined,
   });
 }
 
-function runPrompt(target: string, input: string) {
+function runPrompt(
+  target: string,
+  steps: string[],
+  options: { args?: string[]; env?: NodeJS.ProcessEnv; home?: string } = {},
+) {
+  const home = options.home ?? path.join(path.dirname(target), `.home-${path.basename(target)}`);
+  mkdirSync(home, { recursive: true });
   const script = [
-    "import fcntl, os, pty, re, select, struct, sys, termios, time",
-    "cwd, cmd = sys.argv[1], sys.argv[2:]",
-    "payload = sys.stdin.buffer.read()",
-    "ctrl_c = payload == b'\\x03'",
-    "if payload and not ctrl_c and not payload.endswith(b'\\n'):",
-    "    payload += b'\\n'",
-    "lines = [] if ctrl_c else payload.splitlines()",
+    "import fcntl, json, os, pty, select, struct, sys, termios, time",
+    "home, cwd = sys.argv[1], sys.argv[2]",
+    "cmd = sys.argv[3:]",
+    "steps = json.loads(sys.stdin.buffer.read().decode())",
     "pid, fd = pty.fork()",
     "if pid == 0:",
     "    os.environ['TERM'] = 'xterm-256color'",
     "    os.environ['COLUMNS'] = '200'",
+    "    os.environ['HOME'] = home",
+    "    os.environ.pop('CI', None)",
+    "    os.environ.pop('ACCESSIBLE', None)",
     "    winsz = struct.pack('HHHH', 40, 200, 0, 0)",
     "    fcntl.ioctl(1, termios.TIOCSWINSZ, winsz)",
     "    os.chdir(cwd)",
     "    os.execvp(cmd[0], cmd)",
     "output = b''",
     "index = 0",
-    "sent_ctrl = False",
     "saw_new = False",
     "last = time.time()",
-    "quiet = 0.3",
-    "waiting = re.compile(rb'\\]: (?:\\x1b\\[\\d+G)?$')",
-    "deadline = time.time() + 20",
+    "quiet = 0.25",
+    "deadline = time.time() + 25",
     "def take(timeout):",
     "    ready, _, _ = select.select([fd], [], [], timeout)",
     "    if not ready:",
@@ -456,13 +950,9 @@ function runPrompt(target: string, input: string) {
     "        output += chunk",
     "        saw_new = True",
     "        last = now",
-    "    elif saw_new and now - last >= quiet and waiting.search(output):",
-    "        if ctrl_c and not sent_ctrl:",
-    "            send(b'\\x03')",
-    "            sent_ctrl = True",
-    "        elif index < len(lines):",
-    "            send(lines[index] + b'\\n')",
-    "            index += 1",
+    "    elif saw_new and now - last >= quiet and index < len(steps):",
+    "        send(steps[index].encode())",
+    "        index += 1",
     "        saw_new = False",
     "        last = now",
     "    wpid, status = os.waitpid(pid, os.WNOHANG)",
@@ -489,6 +979,7 @@ function runPrompt(target: string, input: string) {
     [
       "-c",
       script,
+      home,
       path.resolve(here, "../../.."),
       process.execPath,
       "--import",
@@ -496,9 +987,46 @@ function runPrompt(target: string, input: string) {
       bin,
       target,
       "--skip-install",
+      ...(options.args ?? []),
     ],
-    { input, encoding: "utf8" },
+    {
+      input: JSON.stringify(steps),
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        npm_config_user_agent: "npm/10.0.0 npm/? node/v22.0.0",
+        ...options.env,
+        HOME: home,
+      },
+    },
   );
+}
+
+function configFromCount(params: URLSearchParams) {
+  const agents = params.get("agents");
+  return withConfigFlags(loadPreset(params.get("preset") ?? "startup-speed"), {
+    palette: params.get("palette") ?? undefined,
+    font: params.get("font") ?? undefined,
+    radius: params.get("radius") ?? undefined,
+    lint: params.get("lint") ?? undefined,
+    branching: params.get("branching") ?? undefined,
+    agents: agents === null ? undefined : agents.split(","),
+    credit: boolParam(params.get("credit")),
+    packageManager: params.get("packageManager") ?? undefined,
+    initGit: boolParam(params.get("initGit")),
+    immediate: boolParam(params.get("immediate")),
+  });
+}
+
+function boolParam(value: string | null): boolean | undefined {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return undefined;
+}
+
+function plainText(value: string): string {
+  const esc = String.fromCharCode(27);
+  return value.replaceAll(new RegExp(`${esc}\\[[0-9;]*[A-Za-z]`, "g"), "");
 }
 
 function assertSameFiles(left: string, right: string): void {
@@ -534,6 +1062,23 @@ function loadConfigurator() {
   const script = html.match(/<script>([\s\S]*)<\/script>/)?.[1];
   if (!script) throw new Error("configurator script missing");
   const document = createDocument();
+  const choices = document.querySelector("#seedlayer-choices");
+  if (!choices) throw new Error("choices missing");
+  choices.textContent = JSON.stringify(CHOICES);
+  const fetch = (url: string) => {
+    document.lastCountUrl = String(url);
+    const params = new URL(String(url), "http://localhost").searchParams;
+    const config = configFromCount(params);
+    const files = renderProject({
+      config,
+      projectName: "my-app",
+      catalog: loadCatalog(),
+    });
+    return Promise.resolve({
+      ok: true,
+      json: () => Promise.resolve({ count: files.length, code: encodeConfig(config) }),
+    });
+  };
   const context: Record<string, unknown> = {
     document,
     window: { setTimeout },
@@ -541,6 +1086,7 @@ function loadConfigurator() {
     clearTimeout,
     URLSearchParams,
     console,
+    fetch,
   };
   // The page script is a classic script, so run it against the stub document.
   const runner = new Function(
@@ -590,10 +1136,23 @@ function createDocument() {
   const name = named("name", "input");
   name.value = "my-app";
   const settings = named("settings");
-  for (const id of ["presets", "palettes", "radii", "fonts", "linters", "gits", "agents"]) {
+  for (const id of [
+    "presets",
+    "palettes",
+    "radii",
+    "fonts",
+    "linters",
+    "gits",
+    "agents",
+    "managers",
+  ]) {
     settings.append(named(id));
   }
-  settings.append(named("credit", "button"));
+  settings.append(
+    named("credit", "button"),
+    named("git-init", "button"),
+    named("immediate", "button"),
+  );
   const stage = named("stage");
   stage.append(named("stage-name"), named("primary"), named("highlight"), named("surface"));
   documentElement.append(
@@ -604,11 +1163,14 @@ function createDocument() {
     settings,
     stage,
     named("command"),
+    named("code"),
     named("summary"),
     named("file-count"),
+    named("seedlayer-choices", "script"),
   );
   return {
     documentElement,
+    lastCountUrl: "",
     createElement(tag: string) {
       return node(tag);
     },
