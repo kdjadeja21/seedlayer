@@ -2,6 +2,10 @@
   "name": "seedlayer",
   "version": "0.1.0",
   "description": "Generate a Next.js app and the AI context layer for Cursor, Claude Code, and AGENTS.md tools.",
+  "author": {
+    "name": "Krushnasinh Jadeja",
+    "url": "https://github.com/kdjadeja21"
+  },
   "keywords": [
     "seedlayer",
     "scaffold",
@@ -9,7 +13,12 @@
     "cli",
     "agents",
     "cursor",
-    "claude"
+    "claude",
+    "create-next-app",
+    "boilerplate",
+    "starter",
+    "template",
+    "ai-agents"
   ],
   "homepage": "https://github.com/kdjadeja21/seedlayer/tree/main/packages/cli#readme",
   "bugs": {
@@ -33,6 +42,10 @@
     "LICENSE",
     "README.md"
   ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
