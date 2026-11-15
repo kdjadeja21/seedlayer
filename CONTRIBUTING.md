@@ -2,28 +2,43 @@
 
 Seedlayer is a config, a catalog of packs, and a renderer. The web form and the CLI both call that renderer.
 
-## Repository
+## Setup
 
-```text
-packages/core     Zod schema, config codes, pack resolver, template renderer
-packages/packs    Pack content and the three presets
-packages/cli      seedlayer
-apps/web          Configurator
-```
+Node.js 20 or newer. This repo uses pnpm 10.12.1 (`packageManager` in the root `package.json`).
 
 ```bash
 pnpm install
-pnpm test
-pnpm dev
 ```
 
-Node 20 or newer. The repo uses pnpm.
+## Scripts
 
-## Branches
+| Script                  | What it does                                                               |
+| ----------------------- | -------------------------------------------------------------------------- |
+| `pnpm lint`             | Biome check                                                                |
+| `pnpm typecheck`        | Build the packages, then typecheck the web app                             |
+| `pnpm build`            | Build every workspace package                                              |
+| `pnpm test`             | Build the packages, then run their tests                                   |
+| `pnpm dev`              | Build core and packs, then start the configurator at http://localhost:3000 |
+| `pnpm verify:generated` | Render each preset and run install, lint, typecheck, test, and build       |
+| `pnpm release:dry`      | Run the release checks and a dry-run publish                               |
 
-Follow [docs/BRANCHING.md](docs/BRANCHING.md). `main` is the only long-lived branch and stays releasable. Branch from the latest `main` as `<type>/<short-kebab-description>`, open a pull request into `main`, and squash-merge. Before pushing, `pnpm lint`, `pnpm typecheck`, `pnpm build`, and `pnpm test` must pass.
+Before pushing, `pnpm lint`, `pnpm typecheck`, `pnpm build`, and `pnpm test` must pass.
 
-Sync with `origin` and the latest `origin/main` before editing. Cursor, Claude, and other agents follow the same rules (`AGENTS.md`, `CLAUDE.md`, `.cursor/rules/branching.mdc`).
+## Branching
+
+Follow [docs/BRANCHING.md](docs/BRANCHING.md). `main` is the only long-lived branch and stays releasable. Branch from the latest `main` as `<type>/<short-kebab-description>`, open a pull request into `main`, and squash-merge.
+
+Sync with `origin` and the latest `origin/main` before editing. There must be zero commits on `origin/main` missing from your branch before you edit files. Cursor, Claude, and other agents follow the same rules (`AGENTS.md`, `CLAUDE.md`, `.cursor/rules/branching.mdc`).
+
+## Tests
+
+```bash
+pnpm test
+```
+
+That builds `packages/*` and runs each package test suite. `pnpm verify:generated` renders each preset and runs install, lint, typecheck, test, and build in the generated app. Set `PRESET=startup-speed` to run one.
+
+Do not put a timestamp in rendered output. The same config must produce the same files.
 
 ## Add a pack
 
@@ -44,8 +59,11 @@ Add `packages/packs/presets/<id>.json`. It must parse as a full config, and its 
 
 Presets that ship: `startup-speed`, `team-strict`, `hackathon-2h`.
 
-## Generated apps
+## Repository
 
-`pnpm verify:generated` renders each preset and runs install, lint, typecheck, test, and build. Set `PRESET=startup-speed` to run one.
-
-Do not put a timestamp in rendered output. The same config must produce the same files.
+```text
+packages/core     Zod schema, config codes, pack resolver, template renderer
+packages/packs    Pack content and the three presets
+packages/cli      seedlayer
+apps/web          Configurator
+```

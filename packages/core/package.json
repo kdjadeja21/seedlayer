@@ -2,6 +2,10 @@
   "name": "@seedlayer/core",
   "version": "0.1.0",
   "description": "Schema, config codes, resolver, and renderer for Seedlayer.",
+  "author": {
+    "name": "Krushnasinh Jadeja",
+    "url": "https://github.com/kdjadeja21"
+  },
   "keywords": [
     "seedlayer",
     "config",
@@ -38,7 +42,8 @@
     "README.md"
   ],
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "provenance": true
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

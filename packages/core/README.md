@@ -2,4 +2,8 @@
 
 Schema, config codes, resolver, and renderer for Seedlayer.
 
-The CLI and the web UI both use this package, so the same config always produces the same files.
+Internal building block of [seedlayer](https://github.com/kdjadeja21/seedlayer/tree/main/packages/cli#readme).
+
+## License
+
+MIT. See [LICENSE](LICENSE).
