@@ -26,7 +26,7 @@ The same config always produces the same files. The web UI and the CLI share `@s
 | `--version`, `-v` | print the CLI version                                                                |
 | `--config`        | an `sl1.` code or a JSON file                                                        |
 
-`--config` cannot be combined with the flags above. With no config flags, an interactive terminal asks for the preset, palette, and agents. A non-interactive shell uses `startup-speed`.
+`--config` cannot be combined with the flags above. With no config flags, an interactive terminal asks for the preset, palette, agents, font, radius, lint, branching, and credit, then confirms before writing. A non-interactive shell uses `startup-speed`.
 
 This branch is a cursor-lab experiment. `main` stays the starter. The name, license, and scope notes are in [docs/decisions.md](docs/decisions.md). Branch, commit, and release rules are in [docs/BRANCHING.md](docs/BRANCHING.md).
 

@@ -9,6 +9,7 @@ import {
   AGENT_IDS,
   BRANCHING_IDS,
   decodeConfig,
+  encodeConfig,
   FONT_IDS,
   formatConfigError,
   LINTER_IDS,
@@ -35,6 +36,15 @@ const CONFIG_FLAGS = [
 ] as const;
 
 const LOADABLE_PRESETS = PRESET_IDS.filter((id) => id !== "custom");
+const CHOICES = {
+  preset: LOADABLE_PRESETS,
+  palette: PALETTE_IDS,
+  font: FONT_IDS,
+  radius: RADIUS_IDS,
+  lint: LINTER_IDS,
+  branching: BRANCHING_IDS,
+} as const;
+const CREDIT_CHOICES = ["yes", "no"] as const;
 const AGENT_CHOICES = `${AGENT_IDS.join(", ")}. claude is a short name for claude-code`;
 
 main().catch((error: unknown) => {
@@ -81,12 +91,14 @@ async function main(): Promise<void> {
   }
 
   const target = path.resolve(directory);
-  const config = await resolveConfig(values, target, values.force);
   const projectName = path.basename(target);
   const parsedName = projectNameSchema.safeParse(projectName);
   if (!parsedName.success) {
     throw new SeedlayerError(parsedName.error.issues.map((issue) => issue.message).join("\n"));
   }
+
+  const config = await resolveConfig(values, directory, target, values.force);
+  if (!config) return;
 
   prepareDirectory(target, values.force);
   const files = renderProject({
@@ -113,9 +125,10 @@ async function resolveConfig(
   values: Partial<Record<(typeof CONFIG_FLAGS)[number] | "config", string>> & {
     "no-credit"?: boolean;
   },
+  directory: string,
   target: string,
   force: boolean,
-): Promise<SeedlayerConfig> {
+): Promise<SeedlayerConfig | undefined> {
   const passed = CONFIG_FLAGS.filter((flag) => values[flag] !== undefined);
   const noCredit = values["no-credit"] === true;
   if (values.config !== undefined && (passed.length > 0 || noCredit)) {
@@ -126,18 +139,18 @@ async function resolveConfig(
   if (passed.length === 0 && !noCredit) {
     if (process.stdin.isTTY && process.stdout.isTTY) {
       assertDirectory(target, force);
-      return promptConfig();
+      return promptConfig(directory);
     }
     return loadPreset("startup-speed");
   }
 
-  const preset = oneOf("preset", values.preset, LOADABLE_PRESETS) ?? "startup-speed";
+  const preset = oneOf("preset", values.preset, CHOICES.preset) ?? "startup-speed";
   return withConfigFlags(loadPreset(preset), {
-    palette: oneOf("palette", values.palette, PALETTE_IDS),
-    font: oneOf("font", values.font, FONT_IDS),
-    radius: oneOf("radius", values.radius, RADIUS_IDS),
-    lint: oneOf("lint", values.lint, LINTER_IDS),
-    branching: oneOf("branching", values.branching, BRANCHING_IDS),
+    palette: oneOf("palette", values.palette, CHOICES.palette),
+    font: oneOf("font", values.font, CHOICES.font),
+    radius: oneOf("radius", values.radius, CHOICES.radius),
+    lint: oneOf("lint", values.lint, CHOICES.lint),
+    branching: oneOf("branching", values.branching, CHOICES.branching),
     agents: values.agents === undefined ? undefined : parseAgents(values.agents),
     credit: noCredit ? false : undefined,
   });
@@ -198,16 +211,55 @@ function hasVersion(value: unknown): value is { version: string } {
   );
 }
 
-async function promptConfig(): Promise<SeedlayerConfig> {
+async function promptConfig(directory: string): Promise<SeedlayerConfig | undefined> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   try {
-    const preset = await ask(rl, "preset", LOADABLE_PRESETS, "startup-speed");
+    const preset = await ask(rl, "preset", CHOICES.preset, "startup-speed");
     const base = loadPreset(preset);
-    const palette = await ask(rl, "palette", PALETTE_IDS, base.design.palette);
+    const palette = await ask(rl, "palette", CHOICES.palette, base.design.palette);
     const agents = await askAgents(rl, base.agents.join(","));
-    return withConfigFlags(base, { palette, agents });
+    const font = await ask(rl, "font", CHOICES.font, base.design.fontSans);
+    const radius = await ask(rl, "radius", CHOICES.radius, base.design.radius);
+    const lint = await ask(rl, "lint", CHOICES.lint, base.codeStyle.linter);
+    const branching = await ask(rl, "branching", CHOICES.branching, base.git.workflow);
+    const credit = await ask(rl, "credit", CREDIT_CHOICES, base.credit ? "yes" : "no");
+    const config = withConfigFlags(base, {
+      palette,
+      font,
+      radius,
+      lint,
+      branching,
+      agents,
+      credit: credit === "yes",
+    });
+    const code = encodeConfig(config);
+    console.log(
+      [
+        `preset: ${config.preset}`,
+        `palette: ${config.design.palette}`,
+        `agents: ${config.agents.join(",")}`,
+        `font: ${config.design.fontSans}`,
+        `radius: ${config.design.radius}`,
+        `lint: ${config.codeStyle.linter}`,
+        `branching: ${config.git.workflow}`,
+        `credit: ${config.credit ? "yes" : "no"}`,
+        code,
+        `npx seedlayer ${directory} --config ${code}`,
+      ].join("\n"),
+    );
+    if (!(await confirmCreate(rl))) return undefined;
+    return config;
   } finally {
     rl.close();
+  }
+}
+
+async function confirmCreate(rl: Interface): Promise<boolean> {
+  for (;;) {
+    const answer = (await rl.question("Create it? [Y/n] ")).trim();
+    if (answer === "" || answer === "Y" || answer === "y") return true;
+    if (answer === "n" || answer === "N") return false;
+    reportChoice(answer, "an answer", "Y, n");
   }
 }
 
@@ -284,17 +336,18 @@ function printHelp(): void {
   console.log(`seedlayer <directory> [options]
 
 Start from a preset and apply any flags you pass. With no config flags, an
-interactive terminal asks for the preset, palette, and agents.
+interactive terminal asks for the preset, palette, agents, font, radius, lint,
+branching, and credit, then confirms before writing.
 
 Options:
   --config <code-or-file>  sl1 code or a JSON config file
-  --preset <name>          ${LOADABLE_PRESETS.join(", ")} (default startup-speed)
-  --palette <name>         ${PALETTE_IDS.join(", ")}
-  --font <name>            ${FONT_IDS.join(", ")}
-  --radius <name>          ${RADIUS_IDS.join(", ")}
+  --preset <name>          ${CHOICES.preset.join(", ")} (default startup-speed)
+  --palette <name>         ${CHOICES.palette.join(", ")}
+  --font <name>            ${CHOICES.font.join(", ")}
+  --radius <name>          ${CHOICES.radius.join(", ")}
   --agents <list>          comma-separated ${AGENT_CHOICES}
-  --lint <name>            ${LINTER_IDS.join(", ")}
-  --branching <name>       ${BRANCHING_IDS.join(", ")}
+  --lint <name>            ${CHOICES.lint.join(", ")}
+  --branching <name>       ${CHOICES.branching.join(", ")}
   --no-credit              Omit the Seedlayer credit on the home page
   --skip-install           Write files only
   --skip-verify            Install dependencies and skip lint and typecheck

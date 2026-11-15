@@ -254,6 +254,10 @@ test("--version and -v print the package.json version and exit 0", () => {
   assert.equal(help.status, 0, help.stderr);
   assert.match(help.stdout, /--version, -v/);
   assert.match(help.stdout, /claude is a short name for claude-code/);
+  assert.match(
+    help.stdout,
+    /asks for the preset, palette, agents, font, radius, lint,\nbranching, and credit/,
+  );
 });
 
 test("a wrong answer, then a right one, creates the app with the right one", () => {
@@ -261,7 +265,9 @@ test("a wrong answer, then a right one, creates the app with the right one", () 
   const target = path.join(root, "my-app");
   const result = runPrompt(
     target,
-    ["nope", "team-strict", "purple", "ember", "bogus", "claude"].join("\n"),
+    ["nope", "team-strict", "purple", "ember", "bogus", "claude", "", "", "", "", "", "", ""].join(
+      "\n",
+    ),
   );
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
   assert.match(
@@ -282,7 +288,7 @@ test("a wrong answer, then a right one, creates the app with the right one", () 
   assert.deepEqual(config.agents, ["claude-code"]);
 
   const defaults = path.join(root, "defaults");
-  const empty = runPrompt(defaults, "\n\n\n");
+  const empty = runPrompt(defaults, "\n".repeat(9));
   assert.equal(empty.status, 0, `${empty.stdout}\n${empty.stderr}`);
   assert.doesNotMatch(empty.stdout, /is not a /);
   const defaultConfig = JSON.parse(
@@ -290,6 +296,11 @@ test("a wrong answer, then a right one, creates the app with the right one", () 
   );
   assert.equal(defaultConfig.preset, "startup-speed");
   assert.equal(defaultConfig.design.palette, "ink");
+  assert.equal(defaultConfig.design.fontSans, "Inter");
+  assert.equal(defaultConfig.design.radius, "md");
+  assert.equal(defaultConfig.codeStyle.linter, "biome");
+  assert.equal(defaultConfig.git.workflow, "agent-safe");
+  assert.equal(defaultConfig.credit, true);
   assert.deepEqual(defaultConfig.agents, ["cursor", "claude-code"]);
 });
 
@@ -304,6 +315,88 @@ test("a non-empty folder fails before any question is shown", () => {
   assert.doesNotMatch(result.stdout, /preset \(/);
   assert.equal(readFileSync(path.join(target, "keep.txt"), "utf8"), "keep");
   assert.equal(existsSync(path.join(target, "package.json")), false);
+});
+
+test("question mode matches the same font, radius, lint, branching, and credit flags", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  const prompted = path.join(root, "prompted", "my-app");
+  const flagged = path.join(root, "flagged", "my-app");
+  const promptedResult = runPrompt(
+    prompted,
+    ["", "", "", "Geist", "sm", "eslint", "trunk", "no", "Y"].join("\n"),
+  );
+  assert.equal(promptedResult.status, 0, promptedResult.stdout);
+  const flaggedResult = run(flagged, [
+    "--preset",
+    "startup-speed",
+    "--font",
+    "Geist",
+    "--radius",
+    "sm",
+    "--lint",
+    "eslint",
+    "--branching",
+    "trunk",
+    "--no-credit",
+    "--skip-install",
+  ]);
+  assert.equal(flaggedResult.status, 0, flaggedResult.stderr);
+  assertSameFiles(prompted, flagged);
+});
+
+test("a bad project name fails before any question", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  const target = path.join(root, "My App");
+  const result = runPrompt(target, "startup-speed\n");
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(result.stdout, /Use a lowercase project name such as my-app/);
+  assert.doesNotMatch(result.stdout, /preset \(/);
+  assert.equal(existsSync(target), false);
+});
+
+test("the summary shows a working sl1 code and n writes nothing", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  const target = path.join(root, "my-app");
+  const result = runPrompt(
+    target,
+    ["", "harbor", "", "Geist", "sm", "eslint", "trunk", "no", "n"].join("\n"),
+  );
+  assert.equal(result.status, 0, result.stdout);
+  assert.equal(existsSync(target), false);
+  const esc = String.fromCharCode(27);
+  const plain = result.stdout.replaceAll(new RegExp(`${esc}\\[[0-9;]*[A-Za-z]`, "g"), "");
+  const code = plain.match(/sl1\.[A-Za-z0-9_-]+/)?.[0];
+  assert.ok(code);
+  const command = `npx seedlayer ${target} --config ${code}`;
+  assert.ok(plain.includes(command), plain);
+  assert.match(plain, /font: Geist/);
+  assert.match(plain, /radius: sm/);
+  assert.match(plain, /lint: eslint/);
+  assert.match(plain, /branching: trunk/);
+  assert.match(plain, /credit: no/);
+  assert.match(plain, /palette: harbor/);
+  const fromCode = path.join(root, "from-code", "my-app");
+  const generated = run(fromCode, ["--config", code, "--skip-install"]);
+  assert.equal(generated.status, 0, generated.stderr);
+  const fromFlags = path.join(root, "from-flags", "my-app");
+  const flagged = run(fromFlags, [
+    "--preset",
+    "startup-speed",
+    "--palette",
+    "harbor",
+    "--font",
+    "Geist",
+    "--radius",
+    "sm",
+    "--lint",
+    "eslint",
+    "--branching",
+    "trunk",
+    "--no-credit",
+    "--skip-install",
+  ]);
+  assert.equal(flagged.status, 0, flagged.stderr);
+  assertSameFiles(fromCode, fromFlags);
 });
 
 test("ctrl-c during a question quits without writing the app", () => {
@@ -435,7 +528,7 @@ function runPrompt(target: string, input: string) {
     "saw_new = False",
     "last = time.time()",
     "quiet = 0.3",
-    "waiting = re.compile(rb'\\]: (?:\\x1b\\[\\d+G)?$')",
+    "waiting = re.compile(rb'(?:\\]: |\\[Y/n\\] )(?:\\x1b\\[\\d+G)?$')",
     "deadline = time.time() + 20",
     "def take(timeout):",
     "    ready, _, _ = select.select([fd], [], [], timeout)",
