@@ -565,8 +565,14 @@ test("--disable-git skips the repository and the default makes the first commit"
   );
 
   const committed = path.join(root, "committed");
-  const commitResult = run(committed, ["--yes", "--skip-install"]);
+  const commitResult = run(committed, ["--yes", "--skip-install"], {
+    GIT_AUTHOR_NAME: "Seedlayer Test",
+    GIT_AUTHOR_EMAIL: "test@example.com",
+    GIT_COMMITTER_NAME: "Seedlayer Test",
+    GIT_COMMITTER_EMAIL: "test@example.com",
+  });
   assert.equal(commitResult.status, 0, commitResult.stderr);
+  assert.doesNotMatch(commitResult.stderr, /Git commit failed/);
   const log = spawnSync("git", ["log", "-1", "--format=%s"], {
     cwd: committed,
     encoding: "utf8",
