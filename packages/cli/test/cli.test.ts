@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -249,6 +256,63 @@ test("--version and -v print the package.json version and exit 0", () => {
   assert.match(help.stdout, /claude is a short name for claude-code/);
 });
 
+test("a wrong answer, then a right one, creates the app with the right one", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  const target = path.join(root, "my-app");
+  const result = runPrompt(
+    target,
+    ["nope", "team-strict", "purple", "ember", "bogus", "claude"].join("\n"),
+  );
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  assert.match(
+    result.stdout,
+    /"nope" is not a preset\. Pick one of: startup-speed, team-strict, hackathon-2h/,
+  );
+  assert.match(
+    result.stdout,
+    /"purple" is not a palette\. Pick one of: ink, harbor, ember, iris, grove, dusk/,
+  );
+  assert.match(result.stdout, /"bogus" is not an agent\. Pick one of: cursor, claude-code/);
+  const config = JSON.parse(readFileSync(path.join(target, ".seedlayer/config.json"), "utf8"));
+  assert.equal(config.preset, "team-strict");
+  assert.equal(config.design.palette, "ember");
+  assert.deepEqual(config.agents, ["claude-code"]);
+
+  const defaults = path.join(root, "defaults");
+  const empty = runPrompt(defaults, "\n\n\n");
+  assert.equal(empty.status, 0, `${empty.stdout}\n${empty.stderr}`);
+  assert.doesNotMatch(empty.stdout, /is not a /);
+  const defaultConfig = JSON.parse(
+    readFileSync(path.join(defaults, ".seedlayer/config.json"), "utf8"),
+  );
+  assert.equal(defaultConfig.preset, "startup-speed");
+  assert.equal(defaultConfig.design.palette, "ink");
+  assert.deepEqual(defaultConfig.agents, ["cursor", "claude-code"]);
+});
+
+test("a non-empty folder fails before any question is shown", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  const target = path.join(root, "my-app");
+  mkdirSync(target);
+  writeFileSync(path.join(target, "keep.txt"), "keep");
+  const result = runPrompt(target, ["team-strict", "ember", "claude"].join("\n"));
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(result.stdout, /is not empty\. Pass --force to replace it\./);
+  assert.doesNotMatch(result.stdout, /preset \(/);
+  assert.equal(readFileSync(path.join(target, "keep.txt"), "utf8"), "keep");
+  assert.equal(existsSync(path.join(target, "package.json")), false);
+});
+
+test("ctrl-c during a question quits without writing the app", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  const target = path.join(root, "my-app");
+  const result = runPrompt(target, "\u0003");
+  assert.equal(result.status, 1, result.stdout);
+  assert.match(result.stdout, /Aborted with Ctrl\+C/);
+  assert.doesNotMatch(result.stdout, /palette \(/);
+  assert.equal(existsSync(path.join(target, "package.json")), false);
+});
+
 test("--agents claude writes the same files as claude-code", () => {
   const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
   const canonical = path.join(root, "canonical", "my-app");
@@ -343,6 +407,90 @@ function run(target: string, args: string[]) {
     cwd: path.resolve(here, "../../.."),
     encoding: "utf8",
   });
+}
+
+function runPrompt(target: string, input: string) {
+  const script = [
+    "import fcntl, os, pty, re, select, struct, sys, termios, time",
+    "cwd, cmd = sys.argv[1], sys.argv[2:]",
+    "payload = sys.stdin.buffer.read()",
+    "ctrl_c = payload == b'\\x03'",
+    "if payload and not ctrl_c and not payload.endswith(b'\\n'):",
+    "    payload += b'\\n'",
+    "lines = [] if ctrl_c else payload.splitlines()",
+    "pid, fd = pty.fork()",
+    "if pid == 0:",
+    "    os.environ['TERM'] = 'xterm-256color'",
+    "    os.environ['COLUMNS'] = '200'",
+    "    winsz = struct.pack('HHHH', 40, 200, 0, 0)",
+    "    fcntl.ioctl(1, termios.TIOCSWINSZ, winsz)",
+    "    os.chdir(cwd)",
+    "    os.execvp(cmd[0], cmd)",
+    "output = b''",
+    "acked = 0",
+    "index = 0",
+    "sent_ctrl = False",
+    "waiting = re.compile(rb'\\]: (?:\\x1b\\[\\d+G)?$')",
+    "deadline = time.time() + 20",
+    "def take(timeout):",
+    "    ready, _, _ = select.select([fd], [], [], timeout)",
+    "    if not ready:",
+    "        return b''",
+    "    try:",
+    "        return os.read(fd, 8192)",
+    "    except OSError:",
+    "        return b''",
+    "def send(data):",
+    "    view = memoryview(data)",
+    "    while len(view):",
+    "        view = view[os.write(fd, view):]",
+    "while time.time() < deadline:",
+    "    chunk = take(0.1)",
+    "    if chunk:",
+    "        output += chunk",
+    "    if waiting.search(output) and len(output) != acked:",
+    "        if ctrl_c and not sent_ctrl:",
+    "            send(b'\\x03')",
+    "            sent_ctrl = True",
+    "            acked = len(output)",
+    "        elif index < len(lines):",
+    "            send(lines[index] + b'\\n')",
+    "            index += 1",
+    "            acked = len(output)",
+    "    wpid, status = os.waitpid(pid, os.WNOHANG)",
+    "    if wpid == 0:",
+    "        continue",
+    "    while True:",
+    "        chunk = take(0)",
+    "        if not chunk:",
+    "            break",
+    "        output += chunk",
+    "    sys.stdout.buffer.write(output)",
+    "    if os.WIFEXITED(status):",
+    "        raise SystemExit(os.WEXITSTATUS(status))",
+    "    if os.WIFSIGNALED(status):",
+    "        raise SystemExit(128 + os.WTERMSIG(status))",
+    "    raise SystemExit(1)",
+    "os.kill(pid, 9)",
+    "os.waitpid(pid, 0)",
+    "sys.stdout.buffer.write(output)",
+    "raise SystemExit(124)",
+  ].join("\n");
+  return spawnSync(
+    "python3",
+    [
+      "-c",
+      script,
+      path.resolve(here, "../../.."),
+      process.execPath,
+      "--import",
+      "tsx",
+      bin,
+      target,
+      "--skip-install",
+    ],
+    { input, encoding: "utf8" },
+  );
 }
 
 function assertSameFiles(left: string, right: string): void {

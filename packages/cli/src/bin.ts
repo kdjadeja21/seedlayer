@@ -80,14 +80,14 @@ async function main(): Promise<void> {
     throw new SeedlayerError("Pass one directory.");
   }
 
-  const config = await resolveConfig(values);
-  const projectName = path.basename(path.resolve(directory));
+  const target = path.resolve(directory);
+  const config = await resolveConfig(values, target, values.force);
+  const projectName = path.basename(target);
   const parsedName = projectNameSchema.safeParse(projectName);
   if (!parsedName.success) {
     throw new SeedlayerError(parsedName.error.issues.map((issue) => issue.message).join("\n"));
   }
 
-  const target = path.resolve(directory);
   prepareDirectory(target, values.force);
   const files = renderProject({
     config,
@@ -113,6 +113,8 @@ async function resolveConfig(
   values: Partial<Record<(typeof CONFIG_FLAGS)[number] | "config", string>> & {
     "no-credit"?: boolean;
   },
+  target: string,
+  force: boolean,
 ): Promise<SeedlayerConfig> {
   const passed = CONFIG_FLAGS.filter((flag) => values[flag] !== undefined);
   const noCredit = values["no-credit"] === true;
@@ -122,7 +124,10 @@ async function resolveConfig(
   }
   if (values.config !== undefined) return readConfig(values.config);
   if (passed.length === 0 && !noCredit) {
-    if (process.stdin.isTTY && process.stdout.isTTY) return promptConfig();
+    if (process.stdin.isTTY && process.stdout.isTTY) {
+      assertDirectory(target, force);
+      return promptConfig();
+    }
     return loadPreset("startup-speed");
   }
 
@@ -154,13 +159,19 @@ function oneOf<T extends string>(
 }
 
 function parseAgents(value: string): string[] {
-  const agents = value.split(",").map((item) => aliasAgent(item.trim()));
-  const unknown = agents.some((agent) => !AGENT_IDS.find((item) => item === agent));
-  if (agents.length === 0 || unknown) {
+  const agents = listedAgents(value);
+  if (!agents) {
     throw new SeedlayerError(
       `Unknown --agents "${value}". Expected a comma-separated list of: ${AGENT_CHOICES}`,
     );
   }
+  return agents;
+}
+
+function listedAgents(value: string): string[] | undefined {
+  const agents = value.split(",").map((item) => aliasAgent(item.trim()));
+  const unknown = agents.some((agent) => !AGENT_IDS.find((item) => item === agent));
+  if (agents.length === 0 || unknown) return undefined;
   return agents;
 }
 
@@ -193,14 +204,8 @@ async function promptConfig(): Promise<SeedlayerConfig> {
     const preset = await ask(rl, "preset", LOADABLE_PRESETS, "startup-speed");
     const base = loadPreset(preset);
     const palette = await ask(rl, "palette", PALETTE_IDS, base.design.palette);
-    const agentsDefault = base.agents.join(",");
-    const agentsAnswer = (
-      await rl.question(`agents (${AGENT_CHOICES}) [${agentsDefault}]: `)
-    ).trim();
-    return withConfigFlags(base, {
-      palette,
-      agents: parseAgents(agentsAnswer === "" ? agentsDefault : agentsAnswer),
-    });
+    const agents = await askAgents(rl, base.agents.join(","));
+    return withConfigFlags(base, { palette, agents });
   } finally {
     rl.close();
   }
@@ -212,9 +217,27 @@ async function ask<T extends string>(
   allowed: readonly T[],
   fallback: T,
 ): Promise<T> {
-  const answer = (await rl.question(`${flag} (${allowed.join(", ")}) [${fallback}]: `)).trim();
-  if (answer === "") return fallback;
-  return oneOf(flag, answer, allowed) ?? fallback;
+  const choices = allowed.join(", ");
+  for (;;) {
+    const answer = (await rl.question(`${flag} (${choices}) [${fallback}]: `)).trim();
+    if (answer === "") return fallback;
+    const match = allowed.find((item) => item === answer);
+    if (match) return match;
+    reportChoice(answer, `a ${flag}`, choices);
+  }
+}
+
+async function askAgents(rl: Interface, fallback: string): Promise<string[]> {
+  for (;;) {
+    const answer = (await rl.question(`agents (${AGENT_CHOICES}) [${fallback}]: `)).trim();
+    const agents = listedAgents(answer === "" ? fallback : answer);
+    if (agents) return agents;
+    reportChoice(answer, "an agent", AGENT_IDS.join(", "));
+  }
+}
+
+function reportChoice(answer: string, kind: string, choices: string): void {
+  process.stdout.write(`"${answer}" is not ${kind}. Pick one of: ${choices}\r\n`);
 }
 
 function readConfig(value: string): SeedlayerConfig {
@@ -223,16 +246,21 @@ function readConfig(value: string): SeedlayerConfig {
   throw new SeedlayerError(`Config "${value}" is not an sl1 code or a file.`);
 }
 
-function prepareDirectory(target: string, force: boolean): void {
+function assertDirectory(target: string, force: boolean): void {
   if (target === path.parse(target).root) {
     throw new SeedlayerError("Refusing to write to the filesystem root.");
   }
+  if (!existsSync(target) || readdirSync(target).length === 0 || force) return;
+  throw new SeedlayerError(`${target} is not empty. Pass --force to replace it.`);
+}
+
+function prepareDirectory(target: string, force: boolean): void {
+  assertDirectory(target, force);
   if (!existsSync(target)) {
     mkdirSync(target, { recursive: true });
     return;
   }
   if (readdirSync(target).length === 0) return;
-  if (!force) throw new SeedlayerError(`${target} is not empty. Pass --force to replace it.`);
   rmSync(target, { recursive: true, force: true });
   mkdirSync(target, { recursive: true });
 }
