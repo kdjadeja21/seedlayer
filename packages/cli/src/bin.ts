@@ -232,7 +232,7 @@ async function askAgents(rl: Interface, fallback: string): Promise<string[]> {
     const answer = (await rl.question(`agents (${AGENT_CHOICES}) [${fallback}]: `)).trim();
     const agents = listedAgents(answer === "" ? fallback : answer);
     if (agents) return agents;
-    reportChoice(answer, "an agent", AGENT_IDS.join(", "));
+    reportChoice(answer, "an agent", AGENT_CHOICES);
   }
 }
 

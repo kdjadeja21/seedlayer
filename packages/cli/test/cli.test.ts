@@ -272,7 +272,10 @@ test("a wrong answer, then a right one, creates the app with the right one", () 
     result.stdout,
     /"purple" is not a palette\. Pick one of: ink, harbor, ember, iris, grove, dusk/,
   );
-  assert.match(result.stdout, /"bogus" is not an agent\. Pick one of: cursor, claude-code/);
+  assert.match(
+    result.stdout,
+    /"bogus" is not an agent\. Pick one of: cursor, claude-code\. claude is a short name for claude-code/,
+  );
   const config = JSON.parse(readFileSync(path.join(target, ".seedlayer/config.json"), "utf8"));
   assert.equal(config.preset, "team-strict");
   assert.equal(config.design.palette, "ember");
