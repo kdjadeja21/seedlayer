@@ -7,7 +7,9 @@ export type SavedAnswers = {
   preset: string;
   palette: string;
   font: string;
+  ui: string;
   radius: string;
+  density: string;
   lint: string;
   branching: string;
   agents: string[];
@@ -47,7 +49,9 @@ function isSaved(value: unknown): value is SavedAnswers {
     listed(CHOICES.preset, record.preset) &&
     listed(CHOICES.palette, record.palette) &&
     listed(CHOICES.font, record.font) &&
+    listed(CHOICES.ui, record.ui) &&
     listed(CHOICES.radius, record.radius) &&
+    listed(CHOICES.density, record.density) &&
     listed(CHOICES.lint, record.lint) &&
     listed(CHOICES.branching, record.branching) &&
     Array.isArray(record.agents) &&

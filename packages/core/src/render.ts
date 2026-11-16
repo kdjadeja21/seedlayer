@@ -42,7 +42,7 @@ export function renderProject(input: {
   }
 
   for (const rule of rules) {
-    writeRule(files, rule, context.flags.cursor);
+    writeRule(files, rule, context);
   }
 
   const lock = lockfile(
@@ -137,14 +137,26 @@ function collectRules(packs: PackDefinition[]): AgentRule[] {
   return rules;
 }
 
-function writeRule(files: Map<string, string>, rule: AgentRule, cursor: boolean): void {
-  const doc = ensureTrailingNewline(`# ${rule.title}\n\n${rule.body.trim()}\n`);
+function writeRule(files: Map<string, string>, rule: AgentRule, context: RenderContext): void {
+  const body = renderRuleBody(rule, context);
+  const doc = ensureTrailingNewline(`# ${rule.title}\n\n${body}\n`);
   files.set(rule.docPath, doc);
-  if (!cursor) return;
+  if (!context.flags.cursor) return;
   const cursorRule = ensureTrailingNewline(
-    `---\ndescription: ${yamlString(rule.description)}\nalwaysApply: ${rule.alwaysApply ? "true" : "false"}\n---\n\n# ${rule.title}\n\n${rule.body.trim()}\n`,
+    `---\ndescription: ${yamlString(rule.description)}\nalwaysApply: ${rule.alwaysApply ? "true" : "false"}\n---\n\n# ${rule.title}\n\n${body}\n`,
   );
   files.set(rule.cursorPath, cursorRule);
+}
+
+function renderRuleBody(rule: AgentRule, context: RenderContext): string {
+  const source = rule.body.trim();
+  if (!source.includes("{{")) return source;
+  try {
+    return renderTemplate(source, context, `${rule.id}.md`).trim();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "template failed";
+    throw new SeedlayerError(`Agent rule "${rule.id}" failed: ${message}`);
+  }
 }
 
 function renderPackTemplate(

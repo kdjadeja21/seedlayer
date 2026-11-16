@@ -10,6 +10,11 @@ Follow the plan if one exists. Otherwise read AGENTS.md first.
 
 Read BRANCHING.md before any git command.
 
+Density is `{{config.design.density}}`.
+{{#if flags.shadcn}}
+shadcn components live in `components/ui`. Restyle them with tokens. The shadcn base color in `components.json` is only a starting point; `app/tokens.css` is the source of truth.
+{{/if}}
+
 Record the active branch when the task starts. Create the work branch from it and target the PR back into that recorded branch. Target `main` only if `main` was the recorded active branch. Do not switch to or merge `main` automatically.
 
 1. Record the active branch.

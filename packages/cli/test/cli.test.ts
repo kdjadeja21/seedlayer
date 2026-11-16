@@ -133,7 +133,9 @@ test("a bad flag value exits 1 and lists the allowed values", () => {
     ["preset", "startup-speed, team-strict, hackathon-2h"],
     ["palette", "ink, harbor, ember, iris, grove, dusk"],
     ["font", "Inter, Geist, system"],
+    ["ui", "shadcn, none"],
     ["radius", "none, sm, md, lg"],
+    ["density", "compact, comfortable, spacious"],
     ["agents", "cursor, claude-code. claude is a short name for claude-code"],
     ["lint", "biome, eslint"],
     ["branching", "trunk, github-flow, agent-safe"],
@@ -296,6 +298,8 @@ test("arrow keys pick the preset, palette, and agents", () => {
     ENTER,
     ENTER,
     ENTER,
+    ENTER,
+    ENTER,
   ]);
   assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
   const config = JSON.parse(readFileSync(path.join(target, ".seedlayer/config.json"), "utf8"));
@@ -306,7 +310,7 @@ test("arrow keys pick the preset, palette, and agents", () => {
   const defaults = path.join(root, "defaults");
   const empty = runPrompt(
     defaults,
-    Array.from({ length: 12 }, () => ENTER),
+    Array.from({ length: 14 }, () => ENTER),
   );
   assert.equal(empty.status, 0, `${empty.stdout}\n${empty.stderr}`);
   const defaultConfig = JSON.parse(
@@ -315,7 +319,9 @@ test("arrow keys pick the preset, palette, and agents", () => {
   assert.equal(defaultConfig.preset, "startup-speed");
   assert.equal(defaultConfig.design.palette, "ink");
   assert.equal(defaultConfig.design.fontSans, "Inter");
+  assert.equal(defaultConfig.stack.components, "shadcn");
   assert.equal(defaultConfig.design.radius, "md");
+  assert.equal(defaultConfig.design.density, "comfortable");
   assert.equal(defaultConfig.codeStyle.linter, "biome");
   assert.equal(defaultConfig.git.workflow, "agent-safe");
   assert.equal(defaultConfig.credit, true);
@@ -347,7 +353,9 @@ test("question mode matches the same font, radius, lint, branching, and credit f
     ENTER,
     ENTER,
     `${DOWN}${ENTER}`,
+    ENTER,
     `${UP}${ENTER}`,
+    ENTER,
     `${DOWN}${ENTER}`,
     `${UP}${UP}${ENTER}`,
     "no\r",
@@ -399,7 +407,9 @@ test("the summary shows a working sl1 code and n writes nothing", () => {
     `${DOWN}${ENTER}`,
     ENTER,
     `${DOWN}${ENTER}`,
+    ENTER,
     `${UP}${ENTER}`,
+    ENTER,
     `${DOWN}${ENTER}`,
     `${UP}${UP}${ENTER}`,
     "no\r",
@@ -473,7 +483,7 @@ test("the credit question accepts y, yes, n, and no in any case", () => {
   for (const [answer, credit] of answers) {
     const target = path.join(root, `credit-${answer}`, "my-app");
     const result = runPrompt(target, [
-      ...Array.from({ length: 7 }, () => ENTER),
+      ...Array.from({ length: 9 }, () => ENTER),
       `${answer}\r`,
       ENTER,
       ENTER,
@@ -487,7 +497,7 @@ test("the credit question accepts y, yes, n, and no in any case", () => {
 
   const rejected = path.join(root, "rejected", "my-app");
   const again = runPrompt(rejected, [
-    ...Array.from({ length: 7 }, () => ENTER),
+    ...Array.from({ length: 9 }, () => ENTER),
     "maybe\r",
     "\u0015no\r",
     ENTER,
@@ -662,7 +672,9 @@ test("preferences become the next defaults and --reset-preferences clears them",
       ENTER,
       ENTER,
       `${DOWN}${ENTER}`,
+      `${DOWN}${ENTER}`,
       ENTER,
+      `${DOWN}${ENTER}`,
       ENTER,
       ENTER,
       ENTER,
@@ -676,18 +688,22 @@ test("preferences become the next defaults and --reset-preferences clears them",
   assert.equal(saved.status, 0, `${saved.stdout}\n${saved.stderr}`);
   const prefs = JSON.parse(readFileSync(path.join(home, ".seedlayer.json"), "utf8"));
   assert.equal(prefs.font, "Geist");
+  assert.equal(prefs.ui, "none");
+  assert.equal(prefs.density, "spacious");
   assert.equal(prefs.packageManager, "pnpm");
   assert.equal(prefs.preset, "startup-speed");
 
   const second = path.join(root, "second", "my-app");
   const again = runPrompt(
     second,
-    Array.from({ length: 12 }, () => ENTER),
+    Array.from({ length: 14 }, () => ENTER),
     { home },
   );
   assert.equal(again.status, 0, `${again.stdout}\n${again.stderr}`);
   const againConfig = JSON.parse(readFileSync(path.join(second, ".seedlayer/config.json"), "utf8"));
   assert.equal(againConfig.design.fontSans, "Geist");
+  assert.equal(againConfig.stack.components, "none");
+  assert.equal(againConfig.design.density, "spacious");
   assert.equal(againConfig.packageManager, "pnpm");
 
   const yes = path.join(root, "yes", "my-app");
@@ -768,7 +784,7 @@ test("the configurator and the CLI write the same files", async () => {
     path.resolve(here, "../../../apps/web/app/api/count/route.ts"),
     "utf8",
   );
-  for (const key of ["packageManager", "initGit", "immediate", "encodeConfig"]) {
+  for (const key of ["packageManager", "initGit", "immediate", "ui", "density", "encodeConfig"]) {
     assert.match(route, new RegExp(key));
   }
   assert.equal(params.get("packageManager"), "bun");
@@ -854,6 +870,148 @@ test("--agents claude writes the same files as claude-code", () => {
   const mixedConfig = JSON.parse(readFileSync(path.join(mixed, ".seedlayer/config.json"), "utf8"));
   assert.deepEqual(mixedConfig.agents, ["cursor", "claude-code"]);
 });
+
+test("--ui none and --ui shadcn set the component library and the agent rules", () => {
+  const step = /shadcn components live in `components\/ui`/;
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  for (const ui of ["none", "shadcn"] as const) {
+    const target = path.join(root, ui, "my-app");
+    const result = run(target, ["--preset", "startup-speed", "--ui", ui, "--skip-install"]);
+    assert.equal(result.status, 0, result.stderr);
+    const config = JSON.parse(readFileSync(path.join(target, ".seedlayer/config.json"), "utf8"));
+    assert.equal(config.stack.components, ui);
+    assert.equal(existsSync(path.join(target, "components.json")), ui === "shadcn");
+    assert.equal(existsSync(path.join(target, "components/ui/button.tsx")), ui === "shadcn");
+    assert.equal(existsSync(path.join(target, "components/ui")), ui === "shadcn");
+    const shared = readFileSync(path.join(target, "docs/agents/design.md"), "utf8");
+    const cursor = readFileSync(path.join(target, ".cursor/rules/design.mdc"), "utf8");
+    assert.equal(cursor.replace(/^---[\s\S]*?---\n/, "").trim(), shared.trim());
+    for (const file of instructionFiles(target)) {
+      if (ui === "none") {
+        assert.doesNotMatch(file.text, /components\/ui/, file.path);
+        assert.doesNotMatch(file.text, /components\.json/, file.path);
+      }
+    }
+    const design = readFileSync(path.join(target, "DESIGN.md"), "utf8");
+    if (ui === "none") assert.match(design, /does not install shadcn/);
+    else assert.match(design, step);
+    for (const file of CHOICE_RULES) {
+      const text = readFileSync(path.join(target, file), "utf8");
+      if (ui === "none") assert.doesNotMatch(text, step, file);
+      else assert.match(text, step, file);
+    }
+  }
+});
+
+test("every --density value sets spacing and the agent rules", () => {
+  const space = {
+    compact: "1.5rem",
+    comfortable: "2.5rem",
+    spacious: "4rem",
+  } as const;
+  const root = mkdtempSync(path.join(tmpdir(), "seedlayer-cli-"));
+  for (const density of CHOICES.density) {
+    const target = path.join(root, density, "my-app");
+    const result = run(target, [
+      "--preset",
+      "startup-speed",
+      "--density",
+      density,
+      "--skip-install",
+    ]);
+    assert.equal(result.status, 0, result.stderr);
+    const config = JSON.parse(readFileSync(path.join(target, ".seedlayer/config.json"), "utf8"));
+    assert.equal(config.design.density, density);
+    assert.match(
+      readFileSync(path.join(target, "app/tokens.css"), "utf8"),
+      new RegExp(`--space-section: ${space[density]}`),
+    );
+    assert.match(
+      readFileSync(path.join(target, "DESIGN.md"), "utf8"),
+      new RegExp(`density \`${density}\``),
+    );
+    const shared = readFileSync(path.join(target, "docs/agents/design.md"), "utf8");
+    const cursor = readFileSync(path.join(target, ".cursor/rules/design.mdc"), "utf8");
+    assert.equal(cursor.replace(/^---[\s\S]*?---\n/, "").trim(), shared.trim());
+    assert.match(shared, new RegExp(`Density is \`${density}\``));
+    for (const file of CHOICE_RULES) {
+      assert.match(
+        readFileSync(path.join(target, file), "utf8"),
+        new RegExp(`Density is \`${density}\``),
+        file,
+      );
+    }
+  }
+});
+
+test("the configurator adds --ui and --density when they leave the preset", () => {
+  const page = loadConfigurator();
+  const none = page.querySelectorAll("#uis button").find((button) => button.dataset.ui === "none");
+  if (!none) throw new Error("ui choice missing");
+  none.click();
+  assert.equal(
+    page.querySelector("#command").textContent,
+    "npx seedlayer my-app --preset startup-speed --ui none",
+  );
+  const compact = page
+    .querySelectorAll("#densities button")
+    .find((button) => button.dataset.density === "compact");
+  if (!compact) throw new Error("density choice missing");
+  compact.click();
+  assert.equal(
+    page.querySelector("#command").textContent,
+    "npx seedlayer my-app --preset startup-speed --ui none --density compact",
+  );
+  const spacious = page
+    .querySelectorAll("#densities button")
+    .find((button) => button.dataset.density === "spacious");
+  if (!spacious) throw new Error("spacious choice missing");
+  spacious.click();
+  assert.equal(
+    page.querySelector("#command").textContent,
+    "npx seedlayer my-app --preset startup-speed --ui none --density spacious",
+  );
+  const shadcn = page
+    .querySelectorAll("#uis button")
+    .find((button) => button.dataset.ui === "shadcn");
+  if (!shadcn) throw new Error("shadcn choice missing");
+  shadcn.click();
+  assert.equal(
+    page.querySelector("#command").textContent,
+    "npx seedlayer my-app --preset startup-speed --density spacious",
+  );
+  page.querySelector("#presets button").click();
+  assert.equal(
+    page.querySelector("#command").textContent,
+    "npx seedlayer my-app --preset startup-speed",
+  );
+});
+
+const CHOICE_RULES = [
+  "AGENTS.md",
+  "CLAUDE.md",
+  "docs/agents/design.md",
+  ".cursor/rules/design.mdc",
+  ".claude/skills/implement/SKILL.md",
+  ".cursor/skills/implement/SKILL.md",
+];
+
+function instructionFiles(target: string): Array<{ path: string; text: string }> {
+  return listFiles(target)
+    .filter(
+      (file) =>
+        file === "AGENTS.md" ||
+        file === "CLAUDE.md" ||
+        file === "DESIGN.md" ||
+        file.startsWith("docs/agents/") ||
+        file.startsWith(".claude/") ||
+        file.startsWith(".cursor/"),
+    )
+    .map((file) => ({
+      path: file,
+      text: readFileSync(path.join(target, file), "utf8"),
+    }));
+}
 
 function assertPresetGitRules(target: string, claude: boolean): void {
   const activeBranch = /active branch/;
@@ -1007,7 +1165,9 @@ function configFromCount(params: URLSearchParams) {
   return withConfigFlags(loadPreset(params.get("preset") ?? "startup-speed"), {
     palette: params.get("palette") ?? undefined,
     font: params.get("font") ?? undefined,
+    ui: params.get("ui") ?? undefined,
     radius: params.get("radius") ?? undefined,
+    density: params.get("density") ?? undefined,
     lint: params.get("lint") ?? undefined,
     branching: params.get("branching") ?? undefined,
     agents: agents === null ? undefined : agents.split(","),
@@ -1140,7 +1300,9 @@ function createDocument() {
     "presets",
     "palettes",
     "radii",
+    "densities",
     "fonts",
+    "uis",
     "linters",
     "gits",
     "agents",

@@ -24,6 +24,7 @@ export {
   AGENTS_MD_MAX_LINES,
   BRANCHING_IDS,
   CHOICES,
+  DENSITY_IDS,
   FONT_IDS,
   formatConfigError,
   LINTER_IDS,
@@ -36,6 +37,7 @@ export {
   SCHEMA_VERSION,
   SEEDLAYER_VERSION,
   seedlayerConfigSchema,
+  UI_IDS,
 } from "./schema.js";
 export { designTokens } from "./tokens.js";
 export type {

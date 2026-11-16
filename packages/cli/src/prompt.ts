@@ -13,7 +13,9 @@ export type PromptFlags = {
   preset?: string;
   palette?: string;
   font?: string;
+  ui?: string;
   radius?: string;
+  density?: string;
   lint?: string;
   branching?: string;
   agents?: string[];
@@ -47,10 +49,20 @@ export async function promptConfig(
     CHOICES.font,
     first(flags.font, remembered?.font, base.design.fontSans, CHOICES.font),
   );
+  const ui = await pick(
+    "UI components",
+    CHOICES.ui,
+    first(flags.ui, remembered?.ui, base.stack.components, CHOICES.ui),
+  );
   const radius = await pick(
     "Radius",
     CHOICES.radius,
     first(flags.radius, remembered?.radius, base.design.radius, CHOICES.radius),
+  );
+  const density = await pick(
+    "Density",
+    CHOICES.density,
+    first(flags.density, remembered?.density, base.design.density, CHOICES.density),
   );
   const lint = await pick(
     "Lint",
@@ -87,7 +99,9 @@ export async function promptConfig(
   const config = withConfigFlags(base, {
     palette,
     font,
+    ui,
     radius,
+    density,
     lint,
     branching,
     agents,
@@ -103,7 +117,9 @@ export async function promptConfig(
       `palette: ${config.design.palette}`,
       `agents: ${config.agents.join(",")}`,
       `font: ${config.design.fontSans}`,
+      `ui: ${config.stack.components}`,
       `radius: ${config.design.radius}`,
+      `density: ${config.design.density}`,
       `lint: ${config.codeStyle.linter}`,
       `branching: ${config.git.workflow}`,
       `credit: ${config.credit ? "yes" : "no"}`,
@@ -119,7 +135,9 @@ export async function promptConfig(
     preset: config.preset,
     palette: config.design.palette,
     font: config.design.fontSans,
+    ui: config.stack.components,
     radius: config.design.radius,
+    density: config.design.density,
     lint: config.codeStyle.linter,
     branching: config.git.workflow,
     agents: [...config.agents],
