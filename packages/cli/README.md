@@ -31,7 +31,7 @@ On a terminal, arrow keys move, Enter selects, and Space toggles agents.
 
 ## What you get
 
-A Next.js app (TypeScript, Tailwind, shadcn, and Vitest), plus:
+A Next.js app (TypeScript, Tailwind, and Vitest), plus shadcn unless you pass `--ui none`:
 
 - `AGENTS.md`, the short index other tools read
 - `CLAUDE.md` and `.claude` when Claude Code is selected
@@ -59,7 +59,9 @@ Pass a flag to override the preset. A value you leave out stays on the preset. B
 | `--preset <name>`         | `startup-speed`, `team-strict`, `hackathon-2h`                                      | `startup-speed` |
 | `--palette <name>`        | `ink`, `harbor`, `ember`, `iris`, `grove`, `dusk`                                   | preset          |
 | `--font <name>`           | `Inter`, `Geist`, `system`                                                          | preset          |
+| `--ui <name>`             | `shadcn`, `none`                                                                    | preset          |
 | `--radius <name>`         | `none`, `sm`, `md`, `lg`                                                            | preset          |
+| `--density <name>`        | `compact`, `comfortable`, `spacious`                                                | preset          |
 | `--agents <list>`         | comma-separated `cursor`, `claude-code`. `claude` is a short name for `claude-code` | preset          |
 | `--lint <name>`           | `biome`, `eslint`                                                                   | preset          |
 | `--branching <name>`      | `trunk`, `github-flow`, `agent-safe`                                                | preset          |
@@ -82,7 +84,7 @@ Pass a flag to override the preset. A value you leave out stays on the preset. B
 
 With none of the `--use-*` flags, install uses the package manager that launched the CLI, or npm. Git still initializes and commits `Initial commit from seedlayer` unless you pass `--disable-git`. The last interactive answers are saved in `~/.seedlayer.json`.
 
-`--config` cannot be combined with `--preset`, `--palette`, `--font`, `--radius`, `--agents`, `--lint`, `--branching`, `--no-credit`, `--use-npm`, `--use-pnpm`, `--use-yarn`, `--use-bun`, `--disable-git`, or `--immediate`.
+`--config` cannot be combined with `--preset`, `--palette`, `--font`, `--ui`, `--radius`, `--density`, `--agents`, `--lint`, `--branching`, `--no-credit`, `--use-npm`, `--use-pnpm`, `--use-yarn`, `--use-bun`, `--disable-git`, or `--immediate`.
 
 ## Non-interactive / CI
 

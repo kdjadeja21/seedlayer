@@ -18,7 +18,9 @@ The same config always produces the same files. The web UI and the CLI share `@s
 | `--preset`                                           | `startup-speed`, `team-strict`, `hackathon-2h`                                       |
 | `--palette`                                          | `ink`, `harbor`, `ember`, `iris`, `grove`, `dusk`                                    |
 | `--font`                                             | `Inter`, `Geist`, `system`                                                           |
+| `--ui`                                               | `shadcn`, `none`                                                                     |
 | `--radius`                                           | `none`, `sm`, `md`, `lg`                                                             |
+| `--density`                                          | `compact`, `comfortable`, `spacious`                                                 |
 | `--agents`                                           | comma-separated `cursor`, `claude-code` (`claude` is a short name for `claude-code`) |
 | `--lint`                                             | `biome`, `eslint`                                                                    |
 | `--branching`                                        | `trunk`, `github-flow`, `agent-safe`                                                 |
@@ -32,7 +34,7 @@ The same config always produces the same files. The web UI and the CLI share `@s
 | `--version`, `-v`                                    | print the CLI version                                                                |
 | `--config`                                           | an `sl1.` code or a JSON file                                                        |
 
-`--config` cannot be combined with the config flags above. With no config flags, an interactive terminal picks the preset, palette, agents, font, radius, lint, branching, credit, package manager, git, and whether to start the dev server, then confirms before writing. Arrow keys move, Enter selects, and Space toggles agents. `--yes` skips the questions. A non-interactive shell uses `startup-speed`. The package manager defaults to the one that launched the CLI. Git is initialized and the first commit is `Initial commit from seedlayer` unless `--disable-git` is set. The last interactive answers are saved in `~/.seedlayer.json` and offered next time.
+`--config` cannot be combined with the config flags above. With no config flags, an interactive terminal picks the preset, palette, agents, font, UI components, radius, density, lint, branching, credit, package manager, git, and whether to start the dev server, then confirms before writing. Arrow keys move, Enter selects, and Space toggles agents. `--yes` skips the questions. A non-interactive shell uses `startup-speed`. The package manager defaults to the one that launched the CLI. Git is initialized and the first commit is `Initial commit from seedlayer` unless `--disable-git` is set. The last interactive answers are saved in `~/.seedlayer.json` and offered next time.
 
 This branch is a cursor-lab experiment. `main` stays the starter. The name, license, and scope notes are in [docs/decisions.md](docs/decisions.md). Branch, commit, and release rules are in [docs/BRANCHING.md](docs/BRANCHING.md).
 
@@ -40,7 +42,7 @@ This branch is a cursor-lab experiment. `main` stays the starter. The name, lice
 
 | Pack           | Output                                                            |
 | -------------- | ----------------------------------------------------------------- |
-| stack-nextjs   | Next.js, Tailwind, shadcn, Vitest                                 |
+| stack-nextjs   | Next.js, Tailwind, shadcn or none, Vitest                         |
 | design-system  | `app/tokens.css`, `DESIGN.md`                                     |
 | code-standards | Biome or ESLint, `CODE_STYLE.md`, file-size check                 |
 | branching      | Trunk, GitHub Flow, or agent-safe, plus a pull request template   |

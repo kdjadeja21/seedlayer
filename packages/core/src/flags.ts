@@ -5,7 +5,9 @@ export function withConfigFlags(
   flags: {
     palette?: string;
     font?: string;
+    ui?: string;
     radius?: string;
+    density?: string;
     lint?: string;
     branching?: string;
     agents?: readonly string[];
@@ -21,11 +23,16 @@ export function withConfigFlags(
     ...(flags.packageManager !== undefined ? { packageManager: flags.packageManager } : {}),
     ...(flags.initGit !== undefined ? { initGit: flags.initGit } : {}),
     ...(flags.immediate !== undefined ? { immediate: flags.immediate } : {}),
+    stack: {
+      ...base.stack,
+      ...(flags.ui !== undefined ? { components: flags.ui } : {}),
+    },
     design: {
       ...base.design,
       ...(flags.palette !== undefined ? { palette: flags.palette } : {}),
       ...(flags.font !== undefined ? { fontSans: flags.font } : {}),
       ...(flags.radius !== undefined ? { radius: flags.radius } : {}),
+      ...(flags.density !== undefined ? { density: flags.density } : {}),
     },
     codeStyle: {
       ...base.codeStyle,

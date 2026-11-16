@@ -33,6 +33,10 @@ Read BRANCHING.md before any git command.
 ## Hard rules
 
 - Use tokens from `app/tokens.css`. Do not hardcode colors.
+- Density is `{{config.design.density}}`.
+{{#if flags.shadcn}}
+- shadcn components live in `components/ui`. Restyle them with tokens. The shadcn base color in `components.json` is only a starting point; `app/tokens.css` is the source of truth.
+{{/if}}
 - Keep this file short. Put detail in `docs/agents/`.
 - Stay within {{config.codeStyle.maxFileLines}} lines per file.
 - Stay within {{config.git.maxPrLines}} lines per pull request.

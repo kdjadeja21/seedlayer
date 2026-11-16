@@ -15,7 +15,9 @@ export async function GET(request: Request): Promise<Response> {
     const config = withConfigFlags(loadPreset(preset), {
       palette: oneOf(url.searchParams.get("palette"), CHOICES.palette),
       font: oneOf(url.searchParams.get("font"), CHOICES.font),
+      ui: oneOf(url.searchParams.get("ui"), CHOICES.ui),
       radius: oneOf(url.searchParams.get("radius"), CHOICES.radius),
+      density: oneOf(url.searchParams.get("density"), CHOICES.density),
       lint: oneOf(url.searchParams.get("lint"), CHOICES.lint),
       branching: oneOf(url.searchParams.get("branching"), CHOICES.branching),
       agents: agents === null ? undefined : parseAgents(agents),

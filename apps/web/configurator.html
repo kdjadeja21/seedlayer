@@ -415,8 +415,16 @@
             <fieldset class="chips" id="radii" aria-label="Radius"></fieldset>
           </section>
           <section>
+            <h2>Density</h2>
+            <fieldset class="chips" id="densities" aria-label="Density"></fieldset>
+          </section>
+          <section>
             <h2>Font</h2>
             <fieldset class="chips" id="fonts" aria-label="Font"></fieldset>
+          </section>
+          <section>
+            <h2>UI components</h2>
+            <fieldset class="chips" id="uis" aria-label="UI components"></fieldset>
           </section>
           <section>
             <h2>Standards</h2>
@@ -569,6 +577,8 @@
           palette: "ink",
           radius: 8,
           font: "Inter",
+          ui: "shadcn",
+          density: "comfortable",
           linter: "biome",
           git: "agent-safe",
           agents: ["cursor", "claude-code"],
@@ -579,6 +589,8 @@
           palette: "harbor",
           radius: 4,
           font: "Geist",
+          ui: "shadcn",
+          density: "compact",
           linter: "eslint",
           git: "github-flow",
           agents: ["cursor", "claude-code"],
@@ -589,6 +601,8 @@
           palette: "grove",
           radius: 12,
           font: "Geist",
+          ui: "shadcn",
+          density: "comfortable",
           linter: "biome",
           git: "trunk",
           agents: ["cursor"],
@@ -622,6 +636,8 @@
         return ids.map((value) => ({ value, label: LABELS[value] ?? value }));
       }
       const FONTS = chips(CHOICES.font);
+      const UIS = chips(CHOICES.ui);
+      const DENSITIES = chips(CHOICES.density);
       const LINTERS = chips(CHOICES.lint);
       const GITS = chips(CHOICES.branching);
       const AGENTS = chips(CHOICES.agents);
@@ -631,7 +647,9 @@
         preset: CHOICES.preset[0],
         palette: CHOICES.palette[0],
         radius: PRESETS[CHOICES.preset[0]].radius,
+        density: PRESETS[CHOICES.preset[0]].density,
         font: PRESETS[CHOICES.preset[0]].font,
+        ui: PRESETS[CHOICES.preset[0]].ui,
         linter: PRESETS[CHOICES.preset[0]].linter,
         git: PRESETS[CHOICES.preset[0]].git,
         agents: PRESETS[CHOICES.preset[0]].agents.slice(),
@@ -669,9 +687,11 @@
         const parts = ["npx", "seedlayer", quoteProject(state.name), "--preset", state.preset];
         if (state.palette !== preset.palette) parts.push("--palette", state.palette);
         if (state.font !== preset.font) parts.push("--font", state.font);
+        if (state.ui !== preset.ui) parts.push("--ui", state.ui);
         if (RADIUS_FLAG[state.radius] !== RADIUS_FLAG[preset.radius]) {
           parts.push("--radius", RADIUS_FLAG[state.radius]);
         }
+        if (state.density !== preset.density) parts.push("--density", state.density);
         if (state.linter !== preset.linter) parts.push("--lint", state.linter);
         if (state.git !== preset.git) parts.push("--branching", state.git);
         if (state.agents.join(",") !== preset.agents.join(",")) {
@@ -692,7 +712,9 @@
           state.preset,
           state.palette,
           state.font,
+          state.ui,
           state.radius,
+          state.density,
           state.linter,
           state.git,
           state.agents.join(","),
@@ -707,7 +729,9 @@
           preset: state.preset,
           palette: state.palette,
           font: state.font,
+          ui: state.ui,
           radius: RADIUS_FLAG[state.radius],
+          density: state.density,
           lint: state.linter,
           branching: state.git,
           agents: state.agents.join(","),
@@ -767,7 +791,9 @@
             id === state.preset &&
             state.palette === preset.palette &&
             state.radius === preset.radius &&
+            state.density === preset.density &&
             state.font === preset.font &&
+            state.ui === preset.ui &&
             state.linter === preset.linter &&
             state.git === preset.git &&
             state.agents.join(",") === preset.agents.join(",") &&
@@ -778,7 +804,9 @@
           button.setAttribute("aria-pressed", button.dataset.palette === state.palette ? "true" : "false");
         }
         pressChips(document.querySelector("#radii"), "radius", (value) => Number(value) === state.radius);
+        pressChips(document.querySelector("#densities"), "density", (value) => value === state.density);
         pressChips(document.querySelector("#fonts"), "font", (value) => value === state.font);
+        pressChips(document.querySelector("#uis"), "ui", (value) => value === state.ui);
         pressChips(document.querySelector("#linters"), "linter", (value) => value === state.linter);
         pressChips(document.querySelector("#gits"), "git", (value) => value === state.git);
         pressChips(document.querySelector("#agents"), "agent", (value) => state.agents.includes(value));
@@ -837,7 +865,9 @@
         state.preset = id;
         state.palette = preset.palette;
         state.radius = preset.radius;
+        state.density = preset.density;
         state.font = preset.font;
+        state.ui = preset.ui;
         state.linter = preset.linter;
         state.git = preset.git;
         state.agents = preset.agents.slice();
@@ -880,7 +910,9 @@
           palettes.append(button);
         }
         mountChips(document.querySelector("#radii"), RADII, "radius");
+        mountChips(document.querySelector("#densities"), DENSITIES, "density");
         mountChips(document.querySelector("#fonts"), FONTS, "font");
+        mountChips(document.querySelector("#uis"), UIS, "ui");
         mountChips(document.querySelector("#linters"), LINTERS, "linter");
         mountChips(document.querySelector("#gits"), GITS, "git");
         mountChips(document.querySelector("#agents"), AGENTS, "agent");
@@ -902,8 +934,16 @@
           edit({ radius: Number(button.dataset.radius) });
           return;
         }
+        if (button.dataset.density) {
+          edit({ density: button.dataset.density });
+          return;
+        }
         if (button.dataset.font) {
           edit({ font: button.dataset.font });
+          return;
+        }
+        if (button.dataset.ui) {
+          edit({ ui: button.dataset.ui });
           return;
         }
         if (button.dataset.linter) {

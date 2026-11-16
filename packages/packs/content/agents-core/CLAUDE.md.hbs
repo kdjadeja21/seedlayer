@@ -2,6 +2,11 @@
 
 Follow [AGENTS.md](AGENTS.md). It links the design, style, and branching docs.
 
+Density is `{{config.design.density}}`.
+{{#if flags.shadcn}}
+shadcn components live in `components/ui`. Restyle them with tokens. The shadcn base color in `components.json` is only a starting point; `app/tokens.css` is the source of truth.
+{{/if}}
+
 @AGENTS.md
 @DESIGN.md
 @CODE_STYLE.md

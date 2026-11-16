@@ -9,6 +9,8 @@ export const PRESET_IDS = ["startup-speed", "team-strict", "hackathon-2h", "cust
 export const PALETTE_IDS = ["ink", "harbor", "ember", "iris", "grove", "dusk"] as const;
 export const RADIUS_IDS = ["none", "sm", "md", "lg"] as const;
 export const FONT_IDS = ["Inter", "Geist", "system"] as const;
+export const UI_IDS = ["shadcn", "none"] as const;
+export const DENSITY_IDS = ["compact", "comfortable", "spacious"] as const;
 export const LINTER_IDS = ["biome", "eslint"] as const;
 export const BRANCHING_IDS = ["trunk", "github-flow", "agent-safe"] as const;
 export const AGENT_IDS = ["cursor", "claude-code"] as const;
@@ -18,7 +20,9 @@ export const CHOICES = {
   preset: PRESET_IDS.filter((id) => id !== "custom"),
   palette: PALETTE_IDS,
   font: FONT_IDS,
+  ui: UI_IDS,
   radius: RADIUS_IDS,
+  density: DENSITY_IDS,
   lint: LINTER_IDS,
   branching: BRANCHING_IDS,
   agents: AGENT_IDS,
@@ -59,7 +63,7 @@ export const seedlayerConfigSchema = z
       framework: z.enum(["nextjs"]),
       language: z.enum(["typescript"]),
       styling: z.enum(["tailwind"]),
-      components: z.enum(["shadcn", "none"]),
+      components: z.enum(UI_IDS),
       tests: z.enum(["vitest", "none"]),
       database: z.enum(["none"]),
       auth: z.enum(["none"]),
@@ -69,7 +73,7 @@ export const seedlayerConfigSchema = z
       palette: paletteSchema,
       radius: z.enum(RADIUS_IDS),
       fontSans: z.enum(FONT_IDS),
-      density: z.enum(["compact", "comfortable", "spacious"]),
+      density: z.enum(DENSITY_IDS),
     }),
     codeStyle: z.strictObject({
       linter: z.enum(LINTER_IDS),

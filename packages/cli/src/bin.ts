@@ -25,7 +25,9 @@ const CONFIG_FLAGS = [
   "preset",
   "palette",
   "font",
+  "ui",
   "radius",
+  "density",
   "agents",
   "lint",
   "branching",
@@ -38,7 +40,9 @@ type Flags = {
   preset?: string;
   palette?: string;
   font?: string;
+  ui?: string;
   radius?: string;
+  density?: string;
   agents?: string;
   lint?: string;
   branching?: string;
@@ -73,7 +77,9 @@ async function main(): Promise<void> {
       preset: { type: "string" },
       palette: { type: "string" },
       font: { type: "string" },
+      ui: { type: "string" },
       radius: { type: "string" },
+      density: { type: "string" },
       agents: { type: "string" },
       lint: { type: "string" },
       branching: { type: "string" },
@@ -220,7 +226,9 @@ function promptFlags(flags: Flags) {
     preset: flags.preset,
     palette: flags.palette,
     font: flags.font,
+    ui: flags.ui,
     radius: flags.radius,
+    density: flags.density,
     lint: flags.lint,
     branching: flags.branching,
     agents: flags.agents === undefined ? undefined : parseAgents(flags.agents),
@@ -236,7 +244,9 @@ function configFromFlags(flags: Flags): SeedlayerConfig {
   return withConfigFlags(loadPreset(preset), {
     palette: oneOf("palette", flags.palette, CHOICES.palette),
     font: oneOf("font", flags.font, CHOICES.font),
+    ui: oneOf("ui", flags.ui, CHOICES.ui),
     radius: oneOf("radius", flags.radius, CHOICES.radius),
+    density: oneOf("density", flags.density, CHOICES.density),
     lint: oneOf("lint", flags.lint, CHOICES.lint),
     branching: oneOf("branching", flags.branching, CHOICES.branching),
     agents: flags.agents === undefined ? undefined : parseAgents(flags.agents),
@@ -428,9 +438,9 @@ function printHelp(): void {
   console.log(`seedlayer <directory> [options]
 
 Start from a preset and apply any flags you pass. With no config flags, an
-interactive terminal picks the preset, palette, agents, font, radius, lint,
-branching, credit, package manager, git, and whether to start the dev server,
-then confirms before writing. Arrow keys move, Enter selects, and Space toggles
+interactive terminal picks the preset, palette, agents, font, UI components,
+radius, density, lint, branching, credit, package manager, git, and whether to
+start the dev server, then confirms before writing. Arrow keys move, Enter selects, and Space toggles
 agents. --yes skips the questions and the confirmation.
 
 Options:
@@ -438,7 +448,9 @@ Options:
   --preset <name>          ${CHOICES.preset.join(", ")} (default startup-speed)
   --palette <name>         ${CHOICES.palette.join(", ")}
   --font <name>            ${CHOICES.font.join(", ")}
+  --ui <name>              ${CHOICES.ui.join(", ")}
   --radius <name>          ${CHOICES.radius.join(", ")}
+  --density <name>         ${CHOICES.density.join(", ")}
   --agents <list>          comma-separated ${AGENT_CHOICES}
   --lint <name>            ${CHOICES.lint.join(", ")}
   --branching <name>       ${CHOICES.branching.join(", ")}
